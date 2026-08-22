@@ -610,6 +610,10 @@ function renderDataView() {
     </div>
   </div>
 
+  <div class="btn-row" style="margin:2px 2px 14px">
+    <button class="btn secondary" id="btn-add-kpm-manual">+ Tambah KPM Manual</button>
+  </div>
+
   <div id="data-results">${renderDataResults()}</div>
   `;
 }
@@ -637,49 +641,58 @@ function bindDataView() {
   });
   document.getElementById('f-desa').addEventListener('change', e => { dataFilter.desa = e.target.value; dataFilter.kelompok = ''; render(); });
   document.getElementById('f-kelompok')?.addEventListener('change', e => { dataFilter.kelompok = e.target.value; render(); });
+  document.getElementById('btn-add-kpm-manual')?.addEventListener('click', () => openKpmForm(null));
   bindDataResultsEvents();
 }
 
+const KOMPONEN_FIELDS = [
+  ['hamil', 'Hamil'], ['aud', 'AUD'], ['sd', 'SD'], ['smp', 'SMP'],
+  ['sma', 'SMA'], ['lansia', 'Lansia'], ['disabilitas', 'Disabilitas']
+];
+
 function openEditKpm(id) {
-  const k = kpmData.find(x => x._id === id);
-  if (!k) return;
-  const kelompokList = getKelompokList(k.desa);
-  const komponenFields = [
-    ['hamil', 'Hamil'], ['aud', 'AUD'], ['sd', 'SD'], ['smp', 'SMP'],
-    ['sma', 'SMA'], ['lansia', 'Lansia'], ['disabilitas', 'Disabilitas']
-  ];
+  openKpmForm(kpmData.find(x => x._id === id));
+}
+
+// k = null -> mode tambah KPM baru manual. k = objek -> mode edit KPM yang sudah ada.
+function openKpmForm(k) {
+  const isNew = !k;
+  if (isNew) k = null; // hanya untuk kejelasan; nilai default diambil dari '' di bawah
+  const kelompokList = getKelompokList(k ? k.desa : '');
+  const komponenFields = KOMPONEN_FIELDS;
   openModal(`
     <div class="modal-head">
-      <h3>Detail KPM</h3>
+      <h3>${isNew ? 'Tambah KPM Manual' : 'Detail KPM'}</h3>
       <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
-    <div class="field"><label>Nama</label><input type="text" id="edit-nama" value="${esc(k.nama)}" placeholder="Nama KPM"></div>
+    <div class="field"><label>Nama</label><input type="text" id="edit-nama" value="${esc(k?.nama || '')}" placeholder="Nama KPM"></div>
     <div class="field-row">
-      <div class="field"><label>Desa</label><input type="text" id="edit-desa" value="${esc(k.desa)}" placeholder="Nama desa"></div>
+      <div class="field"><label>Desa</label><input type="text" id="edit-desa" value="${esc(k?.desa || '')}" placeholder="Nama desa"></div>
       <div class="field">
         <label>No KK</label>
-        <input type="text" id="edit-nokk" value="${esc(k.noKK)}" placeholder="Nomor KK">
+        <input type="text" id="edit-nokk" value="${esc(k?.noKK || '')}" placeholder="Nomor KK">
       </div>
     </div>
-    <div class="field"><label>Alamat</label><input type="text" id="edit-alamat" value="${esc(k.alamat || '')}" placeholder="Alamat"></div>
+    <div class="field"><label>Alamat</label><input type="text" id="edit-alamat" value="${esc(k?.alamat || '')}" placeholder="Alamat"></div>
     <div class="field-row">
-      <div class="field"><label>RT</label><input type="text" id="edit-rt" value="${esc(k.rt || '')}" placeholder="RT"></div>
-      <div class="field"><label>RW</label><input type="text" id="edit-rw" value="${esc(k.rw || '')}" placeholder="RW"></div>
+      <div class="field"><label>RT</label><input type="text" id="edit-rt" value="${esc(k?.rt || '')}" placeholder="RT"></div>
+      <div class="field"><label>RW</label><input type="text" id="edit-rw" value="${esc(k?.rw || '')}" placeholder="RW"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>No Rekening</label><input type="text" id="edit-noRekening" value="${esc(k.noRekening || '')}" placeholder="Nomor rekening KPM"></div>
-      <div class="field"><label>No Kartu (PKH/BPNT)</label><input type="text" id="edit-noKartu" value="${esc(k.noKartu || '')}" placeholder="Nomor kartu"></div>
+      <div class="field"><label>No Rekening</label><input type="text" id="edit-noRekening" value="${esc(k?.noRekening || '')}" placeholder="Nomor rekening KPM"></div>
+      <div class="field"><label>No Kartu (PKH/BPNT)</label><input type="text" id="edit-noKartu" value="${esc(k?.noKartu || '')}" placeholder="Nomor kartu"></div>
     </div>
+    ${!isNew ? `
     <button class="btn ghost" id="copy-nokk" data-nokk="${esc(k.noKK)}" style="margin-bottom:12px">
       <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
       Salin No KK
-    </button>
+    </button>` : ''}
     <div class="field">
       <label>Komponen Dimiliki</label>
       <div class="komp-grid" style="grid-template-columns:repeat(4,1fr)">
         ${komponenFields.map(([f, l]) => `
         <div class="komp-cell">
-          <input type="number" min="0" inputmode="numeric" id="edit-komp-${f}" value="${Number(k[f]) || 0}"
+          <input type="number" min="0" inputmode="numeric" id="edit-komp-${f}" value="${Number(k?.[f]) || 0}"
             style="width:100%; text-align:center; border:1px solid var(--line); border-radius:8px; padding:6px 4px; font-family:'Poppins',sans-serif; font-weight:800; font-size:16px; color:var(--navy-800); background:#fff;">
           <div class="l">${l}</div>
         </div>`).join('')}
@@ -687,27 +700,28 @@ function openEditKpm(id) {
     </div>
     <div class="field">
       <label>Kelompok</label>
-      <input type="text" list="kelompok-suggest" id="edit-kelompok" value="${esc(k.kelompok || '')}" placeholder="Nama kelompok">
+      <input type="text" list="kelompok-suggest" id="edit-kelompok" value="${esc(k?.kelompok || '')}" placeholder="Nama kelompok">
       <datalist id="kelompok-suggest">${kelompokList.map(kl => `<option value="${esc(kl)}">`).join('')}</datalist>
     </div>
     <div class="field">
       <label>Status Keaktifan</label>
       <select id="edit-aktif">
-        <option value="aktif" ${k.statusAktif !== false ? 'selected' : ''}>Aktif</option>
-        <option value="nonaktif" ${k.statusAktif === false ? 'selected' : ''}>Nonaktif</option>
+        <option value="aktif" ${k?.statusAktif !== false ? 'selected' : ''}>Aktif</option>
+        <option value="nonaktif" ${k?.statusAktif === false ? 'selected' : ''}>Nonaktif</option>
       </select>
     </div>
     <div class="field">
       <label>Status KPM (Pengaduan/Graduasi/PPSE)</label>
       <select id="edit-statusbaku">
-        ${STATUS_OPTIONS.map(s => `<option value="${s.v}" ${k.statusBaku === s.v ? 'selected' : ''}>${s.l}</option>`).join('')}
+        ${STATUS_OPTIONS.map(s => `<option value="${s.v}" ${k?.statusBaku === s.v ? 'selected' : ''}>${s.l}</option>`).join('')}
       </select>
     </div>
     <div class="field">
       <label>Catatan</label>
-      <input type="text" id="edit-catatan" value="${esc(k.catatanPengaduan || '')}" placeholder="Tulis catatan (opsional)">
+      <input type="text" id="edit-catatan" value="${esc(k?.catatanPengaduan || '')}" placeholder="Tulis catatan (opsional)">
     </div>
-    ${(k.pengaduanImport || k.tindakLanjutImport) ? `<div class="hint">Riwayat dari data lama — Pengaduan: ${esc(k.pengaduanImport || '-')}; Tindak Lanjut: ${esc(k.tindakLanjutImport || '-')}</div>` : ''}
+    ${(k?.pengaduanImport || k?.tindakLanjutImport) ? `<div class="hint">Riwayat dari data lama — Pengaduan: ${esc(k.pengaduanImport || '-')}; Tindak Lanjut: ${esc(k.tindakLanjutImport || '-')}</div>` : ''}
+    ${!isNew ? `
     <div class="section-title" style="margin-top:16px">Foto & Dokumen</div>
     ${PHOTO_TYPES.map(pt => `
     <div class="field">
@@ -718,27 +732,63 @@ function openEditKpm(id) {
         <button class="btn danger" type="button" data-photo-del="${pt.key}" style="display:none">Hapus</button>
       </div>
       <input type="file" accept="image/*" capture="environment" id="file-photo-${pt.key}" style="display:none">
-    </div>`).join('')}
+    </div>`).join('')}` : `<div class="hint">Foto & dokumen bisa ditambahkan setelah data ini disimpan (buka lagi lewat Data KPM).</div>`}
     <div class="btn-row" style="margin-top:14px">
-      <button class="btn" id="save-kpm">Simpan Perubahan</button>
+      <button class="btn" id="save-kpm">${isNew ? 'Tambah KPM' : 'Simpan Perubahan'}</button>
     </div>
   `);
-  document.getElementById('copy-nokk').addEventListener('click', () => copyToClipboard(k.noKK));
-  PHOTO_TYPES.forEach(pt => {
-    const fileInput = document.getElementById(`file-photo-${pt.key}`);
-    document.querySelector(`[data-photo-take="${pt.key}"]`).addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handlePhotoCapture(k._id, pt.key, e));
-    document.querySelector(`[data-photo-del="${pt.key}"]`).addEventListener('click', () => handlePhotoDelete(k._id, pt.key));
-    loadPhotoSlot(k._id, pt.key);
-  });
+  if (!isNew) {
+    document.getElementById('copy-nokk').addEventListener('click', () => copyToClipboard(k.noKK));
+    PHOTO_TYPES.forEach(pt => {
+      const fileInput = document.getElementById(`file-photo-${pt.key}`);
+      document.querySelector(`[data-photo-take="${pt.key}"]`).addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => handlePhotoCapture(k._id, pt.key, e));
+      document.querySelector(`[data-photo-del="${pt.key}"]`).addEventListener('click', () => handlePhotoDelete(k._id, pt.key));
+      loadPhotoSlot(k._id, pt.key);
+    });
+  }
   document.getElementById('save-kpm').addEventListener('click', () => {
     const newNama = document.getElementById('edit-nama').value.trim();
     const newDesa = document.getElementById('edit-desa').value.trim();
     const newNoKK = document.getElementById('edit-nokk').value.trim();
     if (!newNama) { toast('Nama tidak boleh kosong'); return; }
     if (!newNoKK) { toast('No KK tidak boleh kosong'); return; }
-    const dup = kpmData.find(x => x._id !== k._id && x.noKK === newNoKK);
+    const dup = kpmData.find(x => (!k || x._id !== k._id) && x.noKK === newNoKK);
     if (dup) { toast(`No KK ini sudah dipakai oleh ${dup.nama}`); return; }
+
+    if (isNew) {
+      const komponenVals = {};
+      komponenFields.forEach(([f]) => {
+        komponenVals[f] = Math.max(0, parseInt(document.getElementById(`edit-komp-${f}`).value, 10) || 0);
+      });
+      kpmData.push({
+        _id: uid(),
+        nama: newNama,
+        namaPengurus: newNama,
+        desa: newDesa,
+        noKK: newNoKK,
+        alamat: document.getElementById('edit-alamat').value.trim(),
+        rt: document.getElementById('edit-rt').value.trim(),
+        rw: document.getElementById('edit-rw').value.trim(),
+        noRekening: document.getElementById('edit-noRekening').value.trim(),
+        noKartu: document.getElementById('edit-noKartu').value.trim(),
+        ak: '',
+        komponen: '',
+        ...komponenVals,
+        nominal: '',
+        nominalP2K2: '',
+        kelompok: document.getElementById('edit-kelompok').value.trim(),
+        statusAktif: document.getElementById('edit-aktif').value === 'aktif',
+        statusBaku: document.getElementById('edit-statusbaku').value,
+        catatanPengaduan: document.getElementById('edit-catatan').value.trim(),
+        perluLengkapi: false
+      });
+      saveData();
+      closeModal();
+      render();
+      toast('KPM baru berhasil ditambahkan');
+      return;
+    }
 
     const oldNoKK = k.noKK;
     k.nama = newNama;
@@ -1366,7 +1416,7 @@ function importRows(rows) {
 
     const incoming = {
       nama,
-      namaPengurus: String(pick(r, 'Nama Pengurus') || '').trim(),
+      namaPengurus: String(pick(r, 'Nama Pengurus', 'Pengurus') || '').trim(),
       noKK,
       desa: String(pick(r, 'Desa') || '').trim(),
       alamat: String(pick(r, 'Alamat') || '').trim(),
@@ -1640,7 +1690,7 @@ function doMatchGabungan() {
 
   _ig.excelFiles.forEach(f => {
     f.rows.forEach(r => {
-      const raw = pick(r, 'Nama Pengurus');
+      const raw = pick(r, 'Nama Pengurus', 'Pengurus');
       const { nama, noKK } = splitNamaPengurusIg(raw);
       if (!noKK || !nama) return;
       const kkMatch = normKKIg(noKK);
