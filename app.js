@@ -78,14 +78,77 @@ const MODUL_DATA = {
 
 /* ---------------- State ---------------- */
 let kpmData = loadJSON(LS_KEYS.data, []);
-let settings = loadJSON(LS_KEYS.settings, { namaPendamping: '', nip: '', tandaTanganDataUrl: '' });
+let settings = loadJSON(LS_KEYS.settings, { namaPendamping: '', nip: '', tandaTanganDataUrl: '', kelompokByDesa: {} });
+if (!settings.kelompokByDesa) settings.kelompokByDesa = {};
 let absensiStore = loadJSON(LS_KEYS.absensi, {}); // key -> [{noKK,nama,status}]
 
 let currentView = 'beranda';
 let berandaDesaFilter = '';
 let dataFilter = { desa: '', kelompok: '', search: '' };
+let _kelompokMasterDesaSel = '';
 let statusSearch = '';
 let absensiSel = { modul: '1', sesi: '1', desa: '', kelompok: '', tanggal: todayISO() };
+
+/* ============================================================
+   PWA INSTALL PROMPT HANDLING
+   ============================================================ */
+let deferredPrompt = null;
+const INSTALL_DISMISSED_KEY = 'pwa_install_dismissed_v1';
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallBanner();
+});
+
+window.addEventListener('appinstalled', () => {
+  hideInstallBanner();
+  localStorage.setItem(INSTALL_DISMISSED_KEY, 'true');
+  if (typeof toast === 'function') toast('Aplikasi berhasil diinstal!');
+});
+
+function showInstallBanner() {
+  // Jangan tampilkan jika sudah pernah dismiss
+  if (localStorage.getItem(INSTALL_DISMISSED_KEY)) return;
+  
+  const banner = document.getElementById('install-banner');
+  if (banner) {
+    banner.classList.add('show');
+    document.body.classList.add('install-banner-active');
+  }
+}
+
+function hideInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (banner) {
+    banner.classList.remove('show');
+    document.body.classList.remove('install-banner-active');
+  }
+}
+
+function handleInstallClick() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then((choiceResult) => {
+    if (choiceResult.outcome === 'accepted') {
+      if (typeof toast === 'function') toast('Terimakasih telah menginstal aplikasi kami!');
+    }
+    deferredPrompt = null;
+  });
+}
+
+function handleDismissClick() {
+  localStorage.setItem(INSTALL_DISMISSED_KEY, 'true');
+  hideInstallBanner();
+}
+
+/* Panggil setup event listener setelah DOM loaded */
+document.addEventListener('DOMContentLoaded', () => {
+  const installBtn = document.getElementById('btn-install');
+  const dismissBtn = document.getElementById('btn-dismiss');
+  if (installBtn) installBtn.addEventListener('click', handleInstallClick);
+  if (dismissBtn) dismissBtn.addEventListener('click', handleDismissClick);
+});
 
 /* ---------------- Storage helpers ---------------- */
 function loadJSON(key, fallback) {
@@ -97,6 +160,120 @@ function loadJSON(key, fallback) {
 function saveData() { localStorage.setItem(LS_KEYS.data, JSON.stringify(kpmData)); }
 function saveSettings() { localStorage.setItem(LS_KEYS.settings, JSON.stringify(settings)); }
 function saveAbsensi() { localStorage.setItem(LS_KEYS.absensi, JSON.stringify(absensiStore)); }
+
+/* ============================================================
+   FOTO KPM — disimpan di IndexedDB (bukan localStorage) karena
+   berupa data biner yang relatif besar.
+   ============================================================ */
+const PHOTO_TYPES = [
+  { key: 'utama', label: 'Foto KPM' },
+  { key: 'kartu', label: 'Foto Kartu ATM / KKS' },
+  { key: 'kk', label: 'Foto Kartu Keluarga' }
+];
+const PHOTO_DB_NAME = 'kpm_photos_db';
+const PHOTO_STORE = 'photos';
+let _photoDbPromise = null;
+
+function openPhotoDB() {
+  if (_photoDbPromise) return _photoDbPromise;
+  _photoDbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(PHOTO_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(PHOTO_STORE)) {
+        db.createObjectStore(PHOTO_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _photoDbPromise;
+}
+function photoKey(kpmId, type) { return `${kpmId}::${type}`; }
+
+async function savePhotoBlob(kpmId, type, blob) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).put({ id: photoKey(kpmId, type), kpmId, type, blob, updatedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getPhotoBlob(kpmId, type) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readonly');
+    const req = tx.objectStore(PHOTO_STORE).get(photoKey(kpmId, type));
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deletePhotoBlob(kpmId, type) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).delete(photoKey(kpmId, type));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function deleteAllPhotosForKpm(kpmId) {
+  await Promise.all(PHOTO_TYPES.map(t => deletePhotoBlob(kpmId, t.key)));
+}
+async function getAllPhotos() {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readonly');
+    const req = tx.objectStore(PHOTO_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function clearAllPhotos() {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_STORE, 'readwrite');
+    tx.objectStore(PHOTO_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Kompres file gambar (dari kamera/galeri) jadi JPEG kecil lewat canvas. */
+function compressImageFile(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob => {
+          if (blob) resolve(blob); else reject(new Error('Gagal kompres gambar'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('Gagal memuat gambar'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.readAsDataURL(file);
+  });
+}
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 function todayISO() {
   const d = new Date();
@@ -113,12 +290,29 @@ function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&a
 
 /* ---------------- Derived helpers ---------------- */
 function getDesaList() { return [...new Set(kpmData.map(k => k.desa).filter(Boolean))].sort(); }
+function getAllDesaOptions() {
+  return [...new Set([...getDesaList(), ...Object.keys(settings.kelompokByDesa || {})])].sort();
+}
 function getKelompokList(desa) {
   const src = desa ? kpmData.filter(k => k.desa === desa) : kpmData;
-  return [...new Set(src.map(k => k.kelompok).filter(Boolean))].sort();
+  const fromData = src.map(k => k.kelompok).filter(Boolean);
+  const fromMaster = desa
+    ? ((settings.kelompokByDesa || {})[desa] || [])
+    : Object.values(settings.kelompokByDesa || {}).flat();
+  return [...new Set([...fromData, ...fromMaster])].sort();
+}
+function renderKelompokMasterList(desa) {
+  if (!desa) return `<div class="hint">Ketik/pilih nama desa dulu di atas.</div>`;
+  const list = (settings.kelompokByDesa || {})[desa] || [];
+  if (list.length === 0) return `<div class="hint">Belum ada kelompok tersimpan untuk desa "${esc(desa)}".</div>`;
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(name => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:var(--navy-50);border-radius:999px;padding:6px 10px 6px 12px;font-size:12px;font-weight:600;color:var(--navy-800);">
+      ${esc(name)}
+      <button type="button" data-km-del="${esc(name)}" aria-label="Hapus" style="border:none;background:none;cursor:pointer;color:var(--ink-400);font-weight:800;font-size:14px;line-height:1;padding:0;">×</button>
+    </span>`).join('')}</div>`;
 }
 function kelompokColor(name) {
-  if (!name) return { bg: '#EDEDED', fg: '#7C8D88' };
+  if (!name) return { bg: '#EDEDED', fg: '#8C857D' };
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   const hue = Math.abs(hash) % 360;
@@ -132,18 +326,20 @@ function toast(msg) {
   toast._t = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-function copyToClipboard(text, label = 'Teks') {
+function copyToClipboard(text, label) {
+  const msg = label || 'No KK disalin';
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(
-      () => toast(`${label} disalin`),
-      () => fallbackCopy(text, label)
+      () => toast(msg),
+      () => fallbackCopy(text, msg)
     );
   } else {
-    fallbackCopy(text, label);
+    fallbackCopy(text, msg);
   }
 }
 
-function fallbackCopy(text, label = 'Teks') {
+function fallbackCopy(text, label) {
+  const msg = label || 'No KK disalin';
   const ta = document.createElement('textarea');
   ta.value = text;
   ta.style.position = 'fixed';
@@ -152,7 +348,7 @@ function fallbackCopy(text, label = 'Teks') {
   ta.select();
   try {
     document.execCommand('copy');
-    toast(`${label} disalin`);
+    toast(msg);
   } catch (e) {
     toast('Gagal menyalin');
   }
@@ -357,29 +553,26 @@ function renderDataResults() {
           const kc = kelompokColor(k.kelompok);
           return `
           <tr>
-            <td>
-              <div style="display:flex;align-items:center;gap:3px">
-                <strong class="kpm-name-link" data-id="${k._id}" data-act="edit-kpm">${esc(k.nama)}</strong>
-                <button class="copy-icon-btn" data-act="copy-field" data-value="${esc(k.nama)}" data-label="Nama" title="Salin nama">
-                  <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-              </div>
-              <div style="display:flex;align-items:center;gap:3px;margin-top:2px">
-                <span style="color:var(--ink-400);font-size:11px">${esc(k.noKK)}</span>
-                <button class="copy-icon-btn" data-act="copy-field" data-value="${esc(k.noKK)}" data-label="No KK" title="Salin No KK">
-                  <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-                </button>
-              </div>
-            </td>
+            <td><strong class="kpm-name-link" data-id="${k._id}" data-act="edit-kpm">${esc(k.nama)}</strong>${k.perluLengkapi ? '<span class="badge-lengkapi">⚠ Lengkapi Data</span>' : ''}<br><span style="color:var(--ink-400);font-size:11px">${esc(k.noKK)}</span></td>
             <td>${esc(k.desa)}</td>
             <td><span class="badge" style="background:${kc.bg};color:${kc.fg}">${esc(k.kelompok || 'Tanpa kelompok')}</span></td>
             <td>
               <span class="badge ${k.statusAktif === false ? 'nonaktif' : 'aktif'}">${k.statusAktif === false ? 'Nonaktif' : 'Aktif'}</span>
               ${k.statusBaku ? `<br><span class="badge" style="background:var(--coral-100);color:var(--coral-500);margin-top:4px;display:inline-block">${esc(STATUS_LABEL[k.statusBaku])}</span>` : ''}
             </td>
-            <td><button class="edit-icon-btn" data-id="${k._id}" data-act="edit-kpm">
-              <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
-            </button></td>
+            <td>
+              <div class="row-actions">
+                <button class="icon-btn-sm" data-id="${k._id}" data-act="copy-kk" title="Salin No KK">
+                  <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>
+                </button>
+                <button class="icon-btn-sm" data-id="${k._id}" data-act="copy-nama" title="Salin Nama">
+                  <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                </button>
+                <button class="edit-icon-btn" data-id="${k._id}" data-act="edit-kpm">
+                  <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+                </button>
+              </div>
+            </td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -395,10 +588,6 @@ function renderDataView() {
 
   return `
   <div class="card">
-    <button class="btn secondary" id="btn-add-kpm" style="margin-bottom:12px">
-      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-      Tambah KPM Manual
-    </button>
     <div class="field">
       <label>Cari Nama</label>
       <input type="text" id="f-search" value="${esc(dataFilter.search)}" placeholder="Ketik nama KPM...">
@@ -427,12 +616,16 @@ function renderDataView() {
 
 function bindDataResultsEvents() {
   document.querySelectorAll('[data-act="edit-kpm"]').forEach(b => b.addEventListener('click', () => openEditKpm(b.dataset.id)));
-  document.querySelectorAll('[data-act="copy-field"]').forEach(b => {
-    b.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyToClipboard(b.dataset.value, b.dataset.label);
-    });
-  });
+  document.querySelectorAll('[data-act="copy-kk"]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const k = kpmData.find(x => x._id === b.dataset.id);
+    if (k) copyToClipboard(k.noKK, 'No KK disalin');
+  }));
+  document.querySelectorAll('[data-act="copy-nama"]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const k = kpmData.find(x => x._id === b.dataset.id);
+    if (k) copyToClipboard(k.nama, 'Nama disalin');
+  }));
 }
 
 function bindDataView() {
@@ -444,120 +637,38 @@ function bindDataView() {
   });
   document.getElementById('f-desa').addEventListener('change', e => { dataFilter.desa = e.target.value; dataFilter.kelompok = ''; render(); });
   document.getElementById('f-kelompok')?.addEventListener('change', e => { dataFilter.kelompok = e.target.value; render(); });
-  document.getElementById('btn-add-kpm').addEventListener('click', openAddKpm);
   bindDataResultsEvents();
-}
-
-function openAddKpm() {
-  const desaList = getDesaList();
-  openModal(`
-    <div class="modal-head">
-      <h3>Tambah KPM Manual</h3>
-      <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    </div>
-    <div class="field">
-      <label>Nama <span style="color:var(--coral-500)">*</span></label>
-      <input type="text" id="add-nama" placeholder="Nama KPM">
-    </div>
-    <div class="field">
-      <label>Nama Pengurus</label>
-      <input type="text" id="add-namapengurus" placeholder="Nama pengurus (opsional)">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Desa <span style="color:var(--coral-500)">*</span></label>
-        <input type="text" list="add-desa-suggest" id="add-desa" placeholder="Nama desa">
-        <datalist id="add-desa-suggest">${desaList.map(d => `<option value="${esc(d)}">`).join('')}</datalist>
-      </div>
-      <div class="field">
-        <label>No KK <span style="color:var(--coral-500)">*</span></label>
-        <input type="text" id="add-nokk" placeholder="16 digit No KK" inputmode="numeric">
-      </div>
-    </div>
-    <div class="field"><label>Alamat</label><input type="text" id="add-alamat" placeholder="Alamat (opsional)"></div>
-    <div class="field-row">
-      <div class="field"><label>RT</label><input type="text" id="add-rt" placeholder="-"></div>
-      <div class="field"><label>RW</label><input type="text" id="add-rw" placeholder="-"></div>
-    </div>
-    <div class="field">
-      <label>Kelompok</label>
-      <input type="text" id="add-kelompok" placeholder="Nama kelompok (opsional)">
-    </div>
-    <div class="field">
-      <label>Nominal Bantuan</label>
-      <input type="number" id="add-nominal" placeholder="0" inputmode="numeric">
-    </div>
-    <div class="field">
-      <label>Status Keaktifan</label>
-      <select id="add-aktif">
-        <option value="aktif" selected>Aktif</option>
-        <option value="nonaktif">Nonaktif</option>
-      </select>
-    </div>
-    <div class="btn-row" style="margin-top:14px">
-      <button class="btn" id="save-add-kpm">Simpan KPM Baru</button>
-    </div>
-  `);
-  document.getElementById('save-add-kpm').addEventListener('click', () => {
-    const nama = document.getElementById('add-nama').value.trim();
-    const desa = document.getElementById('add-desa').value.trim();
-    const noKK = document.getElementById('add-nokk').value.trim();
-    if (!nama || !desa || !noKK) {
-      toast('Nama, Desa, dan No KK wajib diisi');
-      return;
-    }
-    if (kpmData.some(k => k.noKK === noKK)) {
-      toast('No KK ini sudah terdaftar');
-      return;
-    }
-    const newKpm = {
-      _id: uid(),
-      nama,
-      namaPengurus: document.getElementById('add-namapengurus').value.trim(),
-      noKK,
-      desa,
-      alamat: document.getElementById('add-alamat').value.trim(),
-      rt: document.getElementById('add-rt').value.trim(),
-      rw: document.getElementById('add-rw').value.trim(),
-      kelompok: document.getElementById('add-kelompok').value.trim(),
-      nominal: document.getElementById('add-nominal').value.trim(),
-      statusAktif: document.getElementById('add-aktif').value === 'aktif',
-      statusBaku: '',
-      catatanPengaduan: ''
-    };
-    kpmData.push(newKpm);
-    saveData();
-    closeModal();
-    render();
-    toast('KPM baru ditambahkan');
-  });
 }
 
 function openEditKpm(id) {
   const k = kpmData.find(x => x._id === id);
   if (!k) return;
   const kelompokList = getKelompokList(k.desa);
-  const komponenList = [
+  const komponenFields = [
     ['hamil', 'Hamil'], ['aud', 'AUD'], ['sd', 'SD'], ['smp', 'SMP'],
     ['sma', 'SMA'], ['lansia', 'Lansia'], ['disabilitas', 'Disabilitas']
-  ].filter(([f]) => Number(k[f]) > 0);
+  ];
   openModal(`
     <div class="modal-head">
       <h3>Detail KPM</h3>
       <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
-    <div class="field"><label>Nama</label><input type="text" value="${esc(k.nama)}" disabled></div>
+    <div class="field"><label>Nama</label><input type="text" id="edit-nama" value="${esc(k.nama)}" placeholder="Nama KPM"></div>
     <div class="field-row">
-      <div class="field"><label>Desa</label><input type="text" value="${esc(k.desa)}" disabled></div>
+      <div class="field"><label>Desa</label><input type="text" id="edit-desa" value="${esc(k.desa)}" placeholder="Nama desa"></div>
       <div class="field">
         <label>No KK</label>
-        <input type="text" value="${esc(k.noKK)}" disabled>
+        <input type="text" id="edit-nokk" value="${esc(k.noKK)}" placeholder="Nomor KK">
       </div>
     </div>
-    <div class="field"><label>Alamat</label><input type="text" value="${esc(k.alamat || '-')}" disabled></div>
+    <div class="field"><label>Alamat</label><input type="text" id="edit-alamat" value="${esc(k.alamat || '')}" placeholder="Alamat"></div>
     <div class="field-row">
-      <div class="field"><label>RT</label><input type="text" value="${esc(k.rt || '-')}" disabled></div>
-      <div class="field"><label>RW</label><input type="text" value="${esc(k.rw || '-')}" disabled></div>
+      <div class="field"><label>RT</label><input type="text" id="edit-rt" value="${esc(k.rt || '')}" placeholder="RT"></div>
+      <div class="field"><label>RW</label><input type="text" id="edit-rw" value="${esc(k.rw || '')}" placeholder="RW"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>No Rekening</label><input type="text" id="edit-noRekening" value="${esc(k.noRekening || '')}" placeholder="Nomor rekening KPM"></div>
+      <div class="field"><label>No Kartu (PKH/BPNT)</label><input type="text" id="edit-noKartu" value="${esc(k.noKartu || '')}" placeholder="Nomor kartu"></div>
     </div>
     <button class="btn ghost" id="copy-nokk" data-nokk="${esc(k.noKK)}" style="margin-bottom:12px">
       <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
@@ -565,10 +676,14 @@ function openEditKpm(id) {
     </button>
     <div class="field">
       <label>Komponen Dimiliki</label>
-      ${komponenList.length === 0 ? `<div class="hint">Tidak ada data komponen.</div>` : `
       <div class="komp-grid" style="grid-template-columns:repeat(4,1fr)">
-        ${komponenList.map(([f, l]) => `<div class="komp-cell"><div class="n">${k[f]}</div><div class="l">${l}</div></div>`).join('')}
-      </div>`}
+        ${komponenFields.map(([f, l]) => `
+        <div class="komp-cell">
+          <input type="number" min="0" inputmode="numeric" id="edit-komp-${f}" value="${Number(k[f]) || 0}"
+            style="width:100%; text-align:center; border:1px solid var(--line); border-radius:8px; padding:6px 4px; font-family:'Poppins',sans-serif; font-weight:800; font-size:16px; color:var(--navy-800); background:#fff;">
+          <div class="l">${l}</div>
+        </div>`).join('')}
+      </div>
     </div>
     <div class="field">
       <label>Kelompok</label>
@@ -593,21 +708,112 @@ function openEditKpm(id) {
       <input type="text" id="edit-catatan" value="${esc(k.catatanPengaduan || '')}" placeholder="Tulis catatan (opsional)">
     </div>
     ${(k.pengaduanImport || k.tindakLanjutImport) ? `<div class="hint">Riwayat dari data lama — Pengaduan: ${esc(k.pengaduanImport || '-')}; Tindak Lanjut: ${esc(k.tindakLanjutImport || '-')}</div>` : ''}
+    <div class="section-title" style="margin-top:16px">Foto & Dokumen</div>
+    ${PHOTO_TYPES.map(pt => `
+    <div class="field">
+      <label>${pt.label}</label>
+      <div class="photo-slot" id="photo-slot-${pt.key}"><div class="photo-empty">Memuat...</div></div>
+      <div class="btn-row">
+        <button class="btn secondary" type="button" data-photo-take="${pt.key}">Ambil/Ganti Foto</button>
+        <button class="btn danger" type="button" data-photo-del="${pt.key}" style="display:none">Hapus</button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="file-photo-${pt.key}" style="display:none">
+    </div>`).join('')}
     <div class="btn-row" style="margin-top:14px">
       <button class="btn" id="save-kpm">Simpan Perubahan</button>
     </div>
   `);
-  document.getElementById('copy-nokk').addEventListener('click', () => copyToClipboard(k.noKK, 'No KK'));
+  document.getElementById('copy-nokk').addEventListener('click', () => copyToClipboard(k.noKK));
+  PHOTO_TYPES.forEach(pt => {
+    const fileInput = document.getElementById(`file-photo-${pt.key}`);
+    document.querySelector(`[data-photo-take="${pt.key}"]`).addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handlePhotoCapture(k._id, pt.key, e));
+    document.querySelector(`[data-photo-del="${pt.key}"]`).addEventListener('click', () => handlePhotoDelete(k._id, pt.key));
+    loadPhotoSlot(k._id, pt.key);
+  });
   document.getElementById('save-kpm').addEventListener('click', () => {
+    const newNama = document.getElementById('edit-nama').value.trim();
+    const newDesa = document.getElementById('edit-desa').value.trim();
+    const newNoKK = document.getElementById('edit-nokk').value.trim();
+    if (!newNama) { toast('Nama tidak boleh kosong'); return; }
+    if (!newNoKK) { toast('No KK tidak boleh kosong'); return; }
+    const dup = kpmData.find(x => x._id !== k._id && x.noKK === newNoKK);
+    if (dup) { toast(`No KK ini sudah dipakai oleh ${dup.nama}`); return; }
+
+    const oldNoKK = k.noKK;
+    k.nama = newNama;
+    k.desa = newDesa;
+    k.noKK = newNoKK;
+    k.alamat = document.getElementById('edit-alamat').value.trim();
+    k.rt = document.getElementById('edit-rt').value.trim();
+    k.rw = document.getElementById('edit-rw').value.trim();
+    komponenFields.forEach(([f]) => {
+      k[f] = Math.max(0, parseInt(document.getElementById(`edit-komp-${f}`).value, 10) || 0);
+    });
     k.kelompok = document.getElementById('edit-kelompok').value.trim();
+    k.noRekening = document.getElementById('edit-noRekening').value.trim();
+    k.noKartu = document.getElementById('edit-noKartu').value.trim();
     k.statusAktif = document.getElementById('edit-aktif').value === 'aktif';
     k.statusBaku = document.getElementById('edit-statusbaku').value;
     k.catatanPengaduan = document.getElementById('edit-catatan').value.trim();
+
+    if (k.perluLengkapi && k.desa && k.alamat) k.perluLengkapi = false;
+
+    if (newNoKK !== oldNoKK) {
+      // Sinkronkan No KK lama -> baru di riwayat absensi supaya tidak lepas keterkaitannya
+      Object.keys(absensiStore).forEach(key => {
+        (absensiStore[key] || []).forEach(entry => {
+          if (entry.noKK === oldNoKK) { entry.noKK = newNoKK; entry.nama = newNama; }
+        });
+      });
+      saveAbsensi();
+    }
+
     saveData();
     closeModal();
     render();
     toast('Data KPM diperbarui');
   });
+}
+
+async function handlePhotoCapture(kpmId, type, e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  toast('Memproses foto...');
+  try {
+    const blob = await compressImageFile(file);
+    await savePhotoBlob(kpmId, type, blob);
+    await loadPhotoSlot(kpmId, type);
+    toast('Foto tersimpan');
+  } catch (err) {
+    console.error(err);
+    toast('Gagal menyimpan foto');
+  }
+}
+async function handlePhotoDelete(kpmId, type) {
+  await deletePhotoBlob(kpmId, type);
+  await loadPhotoSlot(kpmId, type);
+  toast('Foto dihapus');
+}
+async function loadPhotoSlot(kpmId, type) {
+  const slot = document.getElementById(`photo-slot-${type}`);
+  if (!slot) return; // modal sudah ditutup
+  const delBtn = document.querySelector(`[data-photo-del="${type}"]`);
+  try {
+    const blob = await getPhotoBlob(kpmId, type);
+    if (!document.getElementById(`photo-slot-${type}`)) return; // cek ulang, modal bisa ditutup saat menunggu
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      slot.innerHTML = `<img src="${url}" alt="Foto">`;
+      if (delBtn) delBtn.style.display = '';
+    } else {
+      slot.innerHTML = `<div class="photo-empty">Belum ada foto</div>`;
+      if (delBtn) delBtn.style.display = 'none';
+    }
+  } catch (err) {
+    slot.innerHTML = `<div class="photo-empty">Gagal memuat</div>`;
+  }
 }
 
 /* ============================================================
@@ -799,7 +1005,7 @@ function renderAbsensiView() {
   <div class="sticky-actions">
     <button class="btn secondary" id="save-absensi">Simpan</button>
     <button class="btn gold" id="export-absensi-pdf">Export PDF</button>
-    <button class="btn" id="share-absensi-pdf" style="background:var(--teal-700)">
+    <button class="btn" id="share-absensi-pdf" style="background:var(--navy-700)">
       <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
     </button>
   </div>
@@ -937,7 +1143,7 @@ function renderPengaturanView() {
   <div class="card">
     <div class="hint" style="margin-bottom:10px">Tanda tangan ini akan otomatis dipasang di lembar absensi FDS hasil Export PDF.</div>
     ${settings.tandaTanganDataUrl ? `
-      <div style="background:var(--teal-50); border-radius:var(--radius-sm); padding:10px; text-align:center; margin-bottom:10px">
+      <div style="background:var(--navy-50); border-radius:var(--radius-sm); padding:10px; text-align:center; margin-bottom:10px">
         <img src="${settings.tandaTanganDataUrl}" style="max-height:70px; max-width:100%;">
       </div>` : ''}
     <div class="btn-row">
@@ -950,6 +1156,7 @@ function renderPengaturanView() {
   <div class="section-title">Data KPM</div>
   <div class="card settings-card">
     <div class="row"><div class="k">Total data tersimpan</div><div class="v">${kpmData.length} KPM</div></div>
+    <div class="row"><div class="k">Perkiraan pemakaian penyimpanan</div><div class="v" id="storage-usage">Menghitung...</div></div>
     <div class="btn-row" style="margin-top:10px">
       <button class="btn secondary" id="btn-import">Import Data Excel</button>
     </div>
@@ -958,6 +1165,30 @@ function renderPengaturanView() {
     <div class="btn-row" style="margin-top:10px">
       <button class="btn gold" id="btn-export">Export Data Pemutakhiran (Excel)</button>
     </div>
+    <div class="hint">Export ini berisi data teks saja (tanpa foto). Lakukan secara berkala sebagai cadangan.</div>
+  </div>
+
+  <div class="section-title">✨ Import Gabungan (Excel + CSV)</div>
+  <div class="card" style="border:1.5px solid var(--amber-500)">
+    <div class="hint" style="margin-bottom:10px">
+      Untuk data final closing (Excel, kolom "Nama Pengurus" berisi nama+No KK digabung) yang perlu dilengkapi desa/alamat/RT/RW dari CSV data pendukung penyalur. Bisa upload beberapa file Excel & CSV sekaligus, langsung masuk aplikasi tanpa unduh/unggah ulang.
+    </div>
+    <button class="btn gold" id="btn-import-gabungan">Mulai Import Gabungan</button>
+  </div>
+
+  <div class="section-title">Daftar Kelompok per Desa</div>
+  <div class="card">
+    <div class="field">
+      <label>Desa</label>
+      <input type="text" id="km-desa" list="km-desa-suggest" value="${esc(_kelompokMasterDesaSel)}" placeholder="Ketik/pilih nama desa">
+      <datalist id="km-desa-suggest">${getAllDesaOptions().map(d => `<option value="${esc(d)}">`).join('')}</datalist>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Nama Kelompok Baru</label><input type="text" id="km-new" placeholder="Nama kelompok"></div>
+    </div>
+    <div class="btn-row"><button class="btn secondary" id="btn-km-add">Tambah Kelompok</button></div>
+    <div id="km-list" style="margin-top:12px">${renderKelompokMasterList(_kelompokMasterDesaSel)}</div>
+    <div class="hint">Daftar ini dipakai sebagai pilihan dropdown Kelompok di Detail KPM — berguna kalau ada data hasil import yang kolom Kelompok-nya kosong, tinggal pilih dari daftar ini.</div>
   </div>
 
   <div class="section-title">Reset Data</div>
@@ -985,6 +1216,7 @@ function bindPengaturanView() {
   });
   document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
   document.getElementById('file-import').addEventListener('change', handleImportExcel);
+  document.getElementById('btn-import-gabungan').addEventListener('click', openImportGabunganModal);
   document.getElementById('btn-export').addEventListener('click', exportPemutakhiran);
   document.getElementById('btn-reset').addEventListener('click', openResetConfirm);
   document.getElementById('btn-upload-ttd').addEventListener('click', () => document.getElementById('file-ttd').click());
@@ -995,6 +1227,52 @@ function bindPengaturanView() {
     render();
     toast('Tanda tangan dihapus');
   });
+  document.getElementById('km-desa').addEventListener('change', (e) => {
+    _kelompokMasterDesaSel = e.target.value.trim();
+    render();
+  });
+  document.getElementById('btn-km-add').addEventListener('click', () => {
+    const desa = document.getElementById('km-desa').value.trim();
+    const nama = document.getElementById('km-new').value.trim();
+    if (!desa) { toast('Isi/pilih nama desa dulu'); return; }
+    if (!nama) { toast('Isi nama kelompok dulu'); return; }
+    if (!settings.kelompokByDesa[desa]) settings.kelompokByDesa[desa] = [];
+    if (settings.kelompokByDesa[desa].includes(nama)) { toast('Kelompok ini sudah ada di desa tsb'); return; }
+    settings.kelompokByDesa[desa].push(nama);
+    settings.kelompokByDesa[desa].sort();
+    saveSettings();
+    _kelompokMasterDesaSel = desa;
+    render();
+    toast('Kelompok ditambahkan');
+  });
+  document.querySelectorAll('[data-km-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const desa = document.getElementById('km-desa').value.trim();
+      const nama = btn.dataset.kmDel;
+      settings.kelompokByDesa[desa] = (settings.kelompokByDesa[desa] || []).filter(x => x !== nama);
+      saveSettings();
+      render();
+      toast('Kelompok dihapus');
+    });
+  });
+  updateStorageUsage();
+}
+
+async function updateStorageUsage() {
+  const el = document.getElementById('storage-usage');
+  if (!el) return;
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      const mb = (est.usage || 0) / (1024 * 1024);
+      if (!document.getElementById('storage-usage')) return;
+      el.textContent = mb < 1 ? `${Math.round((est.usage || 0) / 1024)} KB` : `${mb.toFixed(1)} MB`;
+    } else {
+      el.textContent = '-';
+    }
+  } catch (e) {
+    if (el) el.textContent = '-';
+  }
 }
 
 function handleUploadTtd(e) {
@@ -1018,18 +1296,19 @@ function openResetConfirm() {
       <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="hint" style="font-size:13px; color:var(--ink-600); margin-bottom:14px">
-      ${kpmData.length} data KPM dan seluruh riwayat absensi akan dihapus permanen dari perangkat ini. Profil pendamping tidak ikut terhapus. Aksi ini tidak bisa dibatalkan.
+      ${kpmData.length} data KPM, seluruh riwayat absensi, dan semua foto yang tersimpan akan dihapus permanen dari perangkat ini. Profil pendamping tidak ikut terhapus. Aksi ini tidak bisa dibatalkan.
     </div>
     <div class="btn-row">
       <button class="btn secondary" data-act="close-modal">Batal</button>
       <button class="btn danger" id="confirm-reset">Ya, Hapus Semua</button>
     </div>
   `);
-  document.getElementById('confirm-reset').addEventListener('click', () => {
+  document.getElementById('confirm-reset').addEventListener('click', async () => {
     kpmData = [];
     absensiStore = {};
     saveData();
     saveAbsensi();
+    try { await clearAllPhotos(); } catch (e) { console.error(e); }
     closeModal();
     berandaDesaFilter = '';
     dataFilter = { desa: '', kelompok: '' };
@@ -1093,6 +1372,8 @@ function importRows(rows) {
       alamat: String(pick(r, 'Alamat') || '').trim(),
       rt: String(pick(r, 'RT') || '').trim(),
       rw: String(pick(r, 'RW') || '').trim(),
+      noRekening: String(pick(r, 'No Rekening', 'Nomor Rekening') || '').trim(),
+      noKartu: String(pick(r, 'No Kartu', 'Nomor Kartu') || '').trim(),
       ak: String(pick(r, 'AK') || '').trim(),
       komponen: String(pick(r, 'Komponen') || '').trim(),
       hamil: Number(pick(r, 'Hamil')) || 0,
@@ -1138,6 +1419,345 @@ function importRows(rows) {
   toast(`Import selesai: ${added} baru, ${updated} diperbarui`);
 }
 
+/* ============================================================
+   IMPORT GABUNGAN (Excel Final Closing + CSV Data Pendukung)
+   ============================================================ */
+let _ig = { excelFiles: [], csvFiles: [], result: null };
+
+function guessColumnIg(headers, candidates) {
+  const lower = headers.map(h => h.toLowerCase().trim());
+  for (const cand of candidates) {
+    const idx = lower.findIndex(h => h === cand);
+    if (idx !== -1) return headers[idx];
+  }
+  for (const cand of candidates) {
+    const idx = lower.findIndex(h => h.includes(cand));
+    if (idx !== -1) return headers[idx];
+  }
+  return headers[0] || '';
+}
+function normKKIg(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/\D/g, '');
+}
+function extractRTIg(alamat) {
+  if (!alamat) return '';
+  const matches = [...String(alamat).matchAll(/RT:?\s*(\d+)/ig)];
+  return matches.length ? matches[matches.length - 1][1] : '';
+}
+function extractRWIg(alamat) {
+  if (!alamat) return '';
+  const matches = [...String(alamat).matchAll(/RW:?\s*(\d+)/ig)];
+  return matches.length ? matches[matches.length - 1][1] : '';
+}
+function splitNamaPengurusIg(raw) {
+  const parts = String(raw || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  return { nama: parts[0] || '', noKK: parts.length > 1 ? parts[parts.length - 1].trim() : '' };
+}
+
+function openImportGabunganModal() {
+  _ig = { excelFiles: [], csvFiles: [], result: null };
+  openModal(renderIgStep1());
+  bindIgStep1();
+}
+
+function renderIgStep1() {
+  return `
+  <div class="modal-head">
+    <h3>Import Gabungan — Langkah 1/3</h3>
+    <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="ig-progress"><div class="ig-pstep now"></div><div class="ig-pstep"></div><div class="ig-pstep"></div></div>
+  <div class="step-title" style="font-size:14px; margin-bottom:4px">Upload data final closing (Excel)</div>
+  <div class="hint" style="margin-bottom:10px">Kolom "Nama Pengurus" berisi nama & No KK digabung dalam satu sel. Boleh unggah lebih dari satu file (misal per desa).</div>
+  <div class="ig-dropzone" id="ig-dz-excel">
+    <div class="ig-dz-text">📄 Ketuk untuk pilih file .xlsx</div>
+    <div class="ig-dz-sub">Bisa lebih dari satu file sekaligus</div>
+  </div>
+  <input type="file" id="ig-file-excel" accept=".xlsx,.xls" multiple style="display:none">
+  <div class="ig-filelist" id="ig-filelist-excel"></div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn" id="ig-next-1" disabled>Lanjut ke Data Pendukung →</button>
+  </div>
+  `;
+}
+
+function bindIgStep1() {
+  document.getElementById('ig-dz-excel').addEventListener('click', () => document.getElementById('ig-file-excel').click());
+  document.getElementById('ig-file-excel').addEventListener('change', handleIgExcelFiles);
+  document.getElementById('ig-next-1').addEventListener('click', () => {
+    openModal(renderIgStep2());
+    bindIgStep2();
+  });
+  renderIgExcelFileList();
+}
+
+function handleIgExcelFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  let pending = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const wb = XLSX.read(evt.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        _ig.excelFiles.push({ name: file.name, rows });
+      } catch (err) {
+        toast(`Gagal membaca ${file.name}`);
+        console.error(err);
+      }
+      pending--;
+      if (pending === 0) renderIgExcelFileList();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+  e.target.value = '';
+}
+
+function renderIgExcelFileList() {
+  const el = document.getElementById('ig-filelist-excel');
+  if (!el) return;
+  el.innerHTML = _ig.excelFiles.map((f, idx) => `
+    <div class="ig-filerow">
+      <div class="fname">📄 ${esc(f.name)}</div>
+      <div class="frows">${f.rows.length} baris</div>
+      <button class="frm" data-idx="${idx}" data-act="ig-remove-excel">✕</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-act="ig-remove-excel"]').forEach(b => {
+    b.addEventListener('click', () => {
+      _ig.excelFiles.splice(Number(b.dataset.idx), 1);
+      renderIgExcelFileList();
+    });
+  });
+  const nextBtn = document.getElementById('ig-next-1');
+  if (nextBtn) nextBtn.disabled = _ig.excelFiles.length === 0;
+}
+
+function renderIgStep2() {
+  return `
+  <div class="modal-head">
+    <h3>Import Gabungan — Langkah 2/3</h3>
+    <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="ig-progress"><div class="ig-pstep done"></div><div class="ig-pstep now"></div><div class="ig-pstep"></div></div>
+  <div class="step-title" style="font-size:14px; margin-bottom:4px">Upload data pendukung (CSV)</div>
+  <div class="hint" style="margin-bottom:10px">Berisi No KK, kelurahan/desa, dan alamat. Desa & RT/RW otomatis diambil dari sini. Bisa lebih dari satu file, otomatis digabung.</div>
+  <div class="ig-dropzone" id="ig-dz-csv">
+    <div class="ig-dz-text">📄 Ketuk untuk pilih file .csv</div>
+    <div class="ig-dz-sub">Bisa lebih dari satu file sekaligus</div>
+  </div>
+  <input type="file" id="ig-file-csv" accept=".csv" multiple style="display:none">
+  <div class="ig-filelist" id="ig-filelist-csv"></div>
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn secondary" id="ig-back-2">← Kembali</button>
+    <button class="btn" id="ig-next-2" disabled>Cocokkan Data →</button>
+  </div>
+  `;
+}
+
+function bindIgStep2() {
+  document.getElementById('ig-dz-csv').addEventListener('click', () => document.getElementById('ig-file-csv').click());
+  document.getElementById('ig-file-csv').addEventListener('change', handleIgCsvFiles);
+  document.getElementById('ig-back-2').addEventListener('click', () => { openModal(renderIgStep1()); bindIgStep1(); });
+  document.getElementById('ig-next-2').addEventListener('click', () => {
+    doMatchGabungan();
+    openModal(renderIgStep3());
+    bindIgStep3();
+  });
+  renderIgCsvFileList();
+}
+
+function handleIgCsvFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  let pending = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const parsed = Papa.parse(evt.target.result, { header: true, skipEmptyLines: true });
+        _ig.csvFiles.push({ name: file.name, rows: parsed.data });
+      } catch (err) {
+        toast(`Gagal membaca ${file.name}`);
+        console.error(err);
+      }
+      pending--;
+      if (pending === 0) renderIgCsvFileList();
+    };
+    reader.readAsText(file);
+  });
+  e.target.value = '';
+}
+
+function renderIgCsvFileList() {
+  const el = document.getElementById('ig-filelist-csv');
+  if (!el) return;
+  el.innerHTML = _ig.csvFiles.map((f, idx) => `
+    <div class="ig-filerow">
+      <div class="fname">📄 ${esc(f.name)}</div>
+      <div class="frows">${f.rows.length} baris</div>
+      <button class="frm" data-idx="${idx}" data-act="ig-remove-csv">✕</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-act="ig-remove-csv"]').forEach(b => {
+    b.addEventListener('click', () => {
+      _ig.csvFiles.splice(Number(b.dataset.idx), 1);
+      renderIgCsvFileList();
+    });
+  });
+  const nextBtn = document.getElementById('ig-next-2');
+  if (nextBtn) nextBtn.disabled = _ig.csvFiles.length === 0;
+}
+
+function doMatchGabungan() {
+  // Bangun lookup alamat/desa dari semua file CSV, kunci No KK yang dinormalisasi
+  const lookup = {};
+  _ig.csvFiles.forEach(f => {
+    if (!f.rows.length) return;
+    const headers = Object.keys(f.rows[0]);
+    const nokkCol = guessColumnIg(headers, ['nokk', 'no kk', 'no_kk']);
+    const desaCol = guessColumnIg(headers, ['kel_name', 'kelurahan', 'desa']);
+    const alamatCol = guessColumnIg(headers, ['alamat']);
+    f.rows.forEach(r => {
+      const kk = normKKIg(r[nokkCol]);
+      if (kk && !lookup[kk]) {
+        const alamat = String(r[alamatCol] || '').trim();
+        lookup[kk] = {
+          desa: String(r[desaCol] || '').trim(),
+          alamat,
+          rt: extractRTIg(alamat),
+          rw: extractRWIg(alamat)
+        };
+      }
+    });
+  });
+
+  const ready = [], needsCheck = [], skipped = [];
+  const seenInBatch = new Set();
+
+  _ig.excelFiles.forEach(f => {
+    f.rows.forEach(r => {
+      const raw = pick(r, 'Nama Pengurus');
+      const { nama, noKK } = splitNamaPengurusIg(raw);
+      if (!noKK || !nama) return;
+      const kkMatch = normKKIg(noKK);
+      if (seenInBatch.has(kkMatch)) return; // duplikat No KK antar file dalam batch ini, ambil kemunculan pertama saja
+      seenInBatch.add(kkMatch);
+
+      const existing = kpmData.find(k => normKKIg(k.noKK) === kkMatch);
+      if (existing) {
+        skipped.push({ nama, noKK });
+        return;
+      }
+
+      const found = lookup[kkMatch];
+      const kpmObj = {
+        _id: uid(),
+        nama,
+        namaPengurus: nama,
+        noKK,
+        desa: found ? found.desa : '',
+        alamat: found ? found.alamat : '',
+        rt: found ? found.rt : '',
+        rw: found ? found.rw : '',
+        ak: String(pick(r, 'AK') || '').trim(),
+        komponen: String(pick(r, 'Komponen') || '').trim(),
+        hamil: Number(pick(r, 'Hamil')) || 0,
+        aud: Number(pick(r, 'AUD')) || 0,
+        sd: Number(pick(r, 'SD')) || 0,
+        smp: Number(pick(r, 'SMP')) || 0,
+        sma: Number(pick(r, 'SMA')) || 0,
+        lansia: Number(pick(r, 'Lansia')) || 0,
+        disabilitas: Number(pick(r, 'Disabilitas')) || 0,
+        nominal: String(pick(r, 'Nominal') || '').trim(),
+        nominalP2K2: String(pick(r, 'NOMINAL P2K2') || '').trim(),
+        kelompok: '',
+        statusAktif: true,
+        statusBaku: '',
+        catatanPengaduan: '',
+        perluLengkapi: !found
+      };
+
+      if (found) ready.push(kpmObj);
+      else needsCheck.push(kpmObj);
+    });
+  });
+
+  _ig.result = { ready, needsCheck, skipped };
+}
+
+function igInitial(nama) {
+  const parts = String(nama || '').trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
+}
+
+function renderIgKpmRow(k, warn) {
+  const meta = warn
+    ? `<span class="meta warn-txt">${esc(k.noKK)} · Alamat tidak ditemukan di CSV</span>`
+    : `<span class="meta">${esc(k.noKK)}${k.desa ? ' · ' + esc(k.desa) : ''}${k.rt ? ' · RT ' + esc(k.rt) + '/RW ' + esc(k.rw) : ''}</span>`;
+  return `
+    <div class="ig-row ${warn ? 'warn' : 'ok'}">
+      <div class="ig-avatar">${igInitial(k.nama)}</div>
+      <div class="ig-row-info">
+        <div class="nm">${esc(k.nama)}</div>
+        ${meta}
+      </div>
+    </div>`;
+}
+
+function renderIgStep3() {
+  const { ready, needsCheck, skipped } = _ig.result;
+  const PREVIEW_LIMIT = 5;
+  return `
+  <div class="modal-head">
+    <h3>Import Gabungan — Langkah 3/3</h3>
+    <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="ig-progress"><div class="ig-pstep done"></div><div class="ig-pstep done"></div><div class="ig-pstep now"></div></div>
+
+  <div class="ig-stat-grid">
+    <div class="ig-stat-card ok"><div class="n">${ready.length}</div><div class="l">Siap import<br>(alamat lengkap)</div></div>
+    <div class="ig-stat-card warn"><div class="n">${needsCheck.length}</div><div class="l">Baru, alamat<br>belum ketemu</div></div>
+    <div class="ig-stat-card skip"><div class="n">${skipped.length}</div><div class="l">Dilewati<br>(sudah ada)</div></div>
+  </div>
+
+  <div class="ig-section-title">✅ Siap diimport <span class="ig-pill">${ready.length}</span></div>
+  ${ready.length ? ready.slice(0, PREVIEW_LIMIT).map(k => renderIgKpmRow(k, false)).join('') : '<div class="hint">Tidak ada.</div>'}
+  ${ready.length > PREVIEW_LIMIT ? `<div class="ig-more">+ ${ready.length - PREVIEW_LIMIT} lainnya</div>` : ''}
+
+  <div class="ig-section-title warn">⚠️ Baru, perlu dicek <span class="ig-pill">${needsCheck.length}</span></div>
+  ${needsCheck.length ? needsCheck.slice(0, PREVIEW_LIMIT).map(k => renderIgKpmRow(k, true)).join('') : '<div class="hint">Tidak ada.</div>'}
+  ${needsCheck.length > PREVIEW_LIMIT ? `<div class="ig-more">+ ${needsCheck.length - PREVIEW_LIMIT} lainnya</div>` : ''}
+  ${needsCheck.length ? '<div class="hint">KPM di atas <strong>tetap akan ditambahkan</strong> ke aplikasi (karena memang belum ada), tapi kolom desa/alamat/RT/RW dikosongkan dulu — nanti diisi manual lewat halaman Data KPM (ditandai badge "⚠ Lengkapi Data").</div>' : ''}
+
+  <div class="ig-section-title" style="color:var(--ink-400)">⏭️ Dilewati — sudah ada di aplikasi <span class="ig-pill" style="background:var(--ink-400)">${skipped.length}</span></div>
+  <div class="hint">No KK ini sudah tercatat sebelumnya di aplikasi, jadi tidak ditimpa supaya perubahan manual (status, catatan, dll) tidak hilang.</div>
+
+  <div class="btn-row" style="margin-top:14px">
+    <button class="btn secondary" id="ig-back-3">← Kembali</button>
+    <button class="btn gold" id="ig-commit" ${(ready.length + needsCheck.length) === 0 ? 'disabled' : ''}>Simpan ${ready.length + needsCheck.length} KPM ke Aplikasi</button>
+  </div>
+  `;
+}
+
+function bindIgStep3() {
+  document.getElementById('ig-back-3').addEventListener('click', () => { openModal(renderIgStep2()); bindIgStep2(); });
+  document.getElementById('ig-commit').addEventListener('click', commitImportGabungan);
+}
+
+function commitImportGabungan() {
+  const { ready, needsCheck } = _ig.result;
+  kpmData.push(...ready, ...needsCheck);
+  saveData();
+  closeModal();
+  render();
+  toast(`Import selesai: ${ready.length} lengkap, ${needsCheck.length} perlu dilengkapi`);
+  _ig = { excelFiles: [], csvFiles: [], result: null };
+}
+
 /* ---------------- Export Excel ---------------- */
 function exportPemutakhiran() {
   const rows = kpmData.map((k, i) => ({
@@ -1149,6 +1769,8 @@ function exportPemutakhiran() {
     'Alamat': k.alamat,
     'RT': k.rt,
     'RW': k.rw,
+    'No Rekening': k.noRekening || '',
+    'No Kartu': k.noKartu || '',
     'AK': k.ak,
     'Komponen': k.komponen,
     'Hamil': k.hamil || 0,
