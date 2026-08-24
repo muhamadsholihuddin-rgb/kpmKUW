@@ -1226,6 +1226,15 @@ function renderPengaturanView() {
     <button class="btn gold" id="btn-import-gabungan">Mulai Import Gabungan</button>
   </div>
 
+  <div class="section-title">🌐 Sinkron Online (Lapor Pencairan)</div>
+  <div class="card" style="border:1.5px solid var(--navy-700)">
+    <div class="hint" style="margin-bottom:10px">
+      Export daftar KPM (No KK, Nama, Desa, Kelompok, Status, Nominal) untuk diimport ke tab "Master KPM" di Google Sheet — supaya KPM bisa mencari namanya sendiri di App Lapor Pencairan.
+    </div>
+    <button class="btn secondary" id="btn-export-master-kpm">Export untuk Master KPM</button>
+    <div class="hint" style="margin-top:8px">Cara pakai: buka Google Sheet tujuan → tab "Master KPM" → menu File → Import → Upload file ini → pilih "Replace current sheet" atau "Append rows" sesuai kebutuhan.</div>
+  </div>
+
   <div class="section-title">Daftar Kelompok per Desa</div>
   <div class="card">
     <div class="field">
@@ -1267,6 +1276,7 @@ function bindPengaturanView() {
   document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
   document.getElementById('file-import').addEventListener('change', handleImportExcel);
   document.getElementById('btn-import-gabungan').addEventListener('click', openImportGabunganModal);
+  document.getElementById('btn-export-master-kpm').addEventListener('click', exportMasterKPM);
   document.getElementById('btn-export').addEventListener('click', exportPemutakhiran);
   document.getElementById('btn-reset').addEventListener('click', openResetConfirm);
   document.getElementById('btn-upload-ttd').addEventListener('click', () => document.getElementById('file-ttd').click());
@@ -1845,6 +1855,23 @@ function exportPemutakhiran() {
   const fname = `Pemutakhiran_KPM_${todayISO()}.xlsx`;
   XLSX.writeFile(wb, fname);
   toast('Data pemutakhiran diunduh');
+}
+
+function exportMasterKPM() {
+  const rows = kpmData.map(k => ({
+    'No KK': k.noKK,
+    'Nama': k.namaPengurus || k.nama,
+    'Desa': k.desa,
+    'Kelompok': k.kelompok,
+    'Status Aktif': k.statusAktif === false ? 'Nonaktif' : 'Aktif',
+    'Nominal': Number(k.nominal) || 0
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Master KPM');
+  const fname = `Master_KPM_${todayISO()}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  toast('File Master KPM diunduh — tinggal import ke Google Sheet');
 }
 
 /* ============================================================
