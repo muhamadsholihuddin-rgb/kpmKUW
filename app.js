@@ -1859,7 +1859,7 @@ function exportPemutakhiran() {
 
 function exportMasterKPM() {
   const rows = kpmData.map(k => ({
-    'No KK': k.noKK,
+    'No KK': `="${String(k.noKK || '').trim()}"`,
     'Nama': k.namaPengurus || k.nama,
     'Desa': k.desa,
     'Kelompok': k.kelompok,
