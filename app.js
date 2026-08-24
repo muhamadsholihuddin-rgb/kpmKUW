@@ -1231,8 +1231,8 @@ function renderPengaturanView() {
     <div class="hint" style="margin-bottom:10px">
       Export daftar KPM (No KK, Nama, Desa, Kelompok, Status, Nominal) untuk diimport ke tab "Master KPM" di Google Sheet — supaya KPM bisa mencari namanya sendiri di App Lapor Pencairan.
     </div>
-    <button class="btn secondary" id="btn-export-master-kpm">Export untuk Master KPM</button>
-    <div class="hint" style="margin-top:8px">Cara pakai: buka Google Sheet tujuan → tab "Master KPM" → menu File → Import → Upload file ini → pilih "Replace current sheet" atau "Append rows" sesuai kebutuhan.</div>
+    <button class="btn secondary" id="btn-export-master-kpm">Export untuk Master KPM (CSV)</button>
+    <div class="hint" style="margin-top:8px">Cara pakai: buka Google Sheet tujuan (lewat browser) → buka/pilih tab "Master KPM" dulu → menu File → Import → Upload → pilih file CSV ini → pada "Import location" pilih "Replace current sheet" (ganti semua) atau "Append to current sheet" (tambah tanpa hapus) → Import data.</div>
   </div>
 
   <div class="section-title">Daftar Kelompok per Desa</div>
@@ -1867,11 +1867,17 @@ function exportMasterKPM() {
     'Nominal': Number(k.nominal) || 0
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Master KPM');
-  const fname = `Master_KPM_${todayISO()}.xlsx`;
-  XLSX.writeFile(wb, fname);
-  toast('File Master KPM diunduh — tinggal import ke Google Sheet');
+  const csv = XLSX.utils.sheet_to_csv(ws);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Master_KPM_${todayISO()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('File Master KPM (CSV) diunduh — tinggal import ke Google Sheet');
 }
 
 /* ============================================================
