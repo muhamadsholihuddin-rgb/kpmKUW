@@ -1340,10 +1340,28 @@ function handleUploadTtd(e) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (evt) => {
-    settings.tandaTanganDataUrl = evt.target.result;
-    saveSettings();
-    render();
-    toast('Tanda tangan tersimpan');
+    const img = new Image();
+    img.onload = () => {
+      // Resize ke lebar maksimal 400px & kompres ke JPEG agar ukuran PDF tetap kecil
+      const maxW = 400;
+      const scale = Math.min(1, maxW / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      // Latar putih agar transparansi PNG tidak jadi hitam saat dikonversi ke JPEG
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      settings.tandaTanganDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      saveSettings();
+      render();
+      toast('Tanda tangan tersimpan');
+    };
+    img.onerror = () => toast('Gagal memproses gambar tanda tangan');
+    img.src = evt.target.result;
   };
   reader.readAsDataURL(file);
   e.target.value = '';
