@@ -88,6 +88,7 @@ let dataFilter = { desa: '', kelompok: '', search: '' };
 let _kelompokMasterDesaSel = '';
 let statusSearch = '';
 let absensiSel = { modul: '1', sesi: '1', desa: '', kelompok: '', tanggal: todayISO() };
+let absensiPdfMode = 'aplikasi'; // 'aplikasi' = isi status dari aplikasi, 'kosong' = kosongkan untuk tanda tangan manual
 
 /* ============================================================
    PWA INSTALL PROMPT HANDLING
@@ -674,13 +675,11 @@ function openKpmForm(k) {
       </div>
     </div>
     <div class="field"><label>Alamat</label><input type="text" id="edit-alamat" value="${esc(k?.alamat || '')}" placeholder="Alamat"></div>
-    <div class="field-row">
-      <div class="field"><label>RT</label><input type="text" id="edit-rt" value="${esc(k?.rt || '')}" placeholder="RT"></div>
-      <div class="field"><label>RW</label><input type="text" id="edit-rw" value="${esc(k?.rw || '')}" placeholder="RW"></div>
-    </div>
-    <div class="field-row">
-      <div class="field"><label>No Rekening</label><input type="text" id="edit-noRekening" value="${esc(k?.noRekening || '')}" placeholder="Nomor rekening KPM"></div>
-      <div class="field"><label>No Kartu (PKH/BPNT)</label><input type="text" id="edit-noKartu" value="${esc(k?.noKartu || '')}" placeholder="Nomor kartu"></div>
+    <div class="field-row-compact">
+      <div class="field w-narrow"><label>RT</label><input type="text" id="edit-rt" value="${esc(k?.rt || '')}" placeholder="RT"></div>
+      <div class="field w-narrow"><label>RW</label><input type="text" id="edit-rw" value="${esc(k?.rw || '')}" placeholder="RW"></div>
+      <div class="field"><label>No Rekening</label><input type="text" id="edit-noRekening" value="${esc(k?.noRekening || '')}" placeholder="No. rekening"></div>
+      <div class="field"><label>No Kartu</label><input type="text" id="edit-noKartu" value="${esc(k?.noKartu || '')}" placeholder="No. kartu"></div>
     </div>
     ${!isNew ? `
     <button class="btn ghost" id="copy-nokk" data-nokk="${esc(k.noKK)}" style="margin-bottom:12px">
@@ -689,11 +688,11 @@ function openKpmForm(k) {
     </button>` : ''}
     <div class="field">
       <label>Komponen Dimiliki</label>
-      <div class="komp-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="komp-grid komp-grid-compact">
         ${komponenFields.map(([f, l]) => `
         <div class="komp-cell">
           <input type="number" min="0" inputmode="numeric" id="edit-komp-${f}" value="${Number(k?.[f]) || 0}"
-            style="width:100%; text-align:center; border:1px solid var(--line); border-radius:8px; padding:6px 4px; font-family:'Poppins',sans-serif; font-weight:800; font-size:16px; color:var(--navy-800); background:#fff;">
+            style="width:100%; text-align:center; border:1px solid var(--line); font-family:'Poppins',sans-serif; font-weight:800; color:var(--navy-800); background:#fff;">
           <div class="l">${l}</div>
         </div>`).join('')}
       </div>
@@ -722,17 +721,24 @@ function openKpmForm(k) {
     </div>
     ${(k?.pengaduanImport || k?.tindakLanjutImport) ? `<div class="hint">Riwayat dari data lama — Pengaduan: ${esc(k.pengaduanImport || '-')}; Tindak Lanjut: ${esc(k.tindakLanjutImport || '-')}</div>` : ''}
     ${!isNew ? `
-    <div class="section-title" style="margin-top:16px">Foto & Dokumen</div>
-    ${PHOTO_TYPES.map(pt => `
-    <div class="field">
-      <label>${pt.label}</label>
-      <div class="photo-slot" id="photo-slot-${pt.key}"><div class="photo-empty">Memuat...</div></div>
-      <div class="btn-row">
-        <button class="btn secondary" type="button" data-photo-take="${pt.key}">Ambil/Ganti Foto</button>
-        <button class="btn danger" type="button" data-photo-del="${pt.key}" style="display:none">Hapus</button>
+    <details class="foto-details">
+      <summary class="foto-summary">
+        Foto & Dokumen
+        <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </summary>
+      <div class="foto-body">
+        ${PHOTO_TYPES.map(pt => `
+        <div class="field">
+          <label>${pt.label}</label>
+          <div class="photo-slot" id="photo-slot-${pt.key}"><div class="photo-empty">Memuat...</div></div>
+          <div class="btn-row">
+            <button class="btn secondary" type="button" data-photo-take="${pt.key}">Ambil/Ganti Foto</button>
+            <button class="btn danger" type="button" data-photo-del="${pt.key}" style="display:none">Hapus</button>
+          </div>
+          <input type="file" accept="image/*" capture="environment" id="file-photo-${pt.key}" style="display:none">
+        </div>`).join('')}
       </div>
-      <input type="file" accept="image/*" capture="environment" id="file-photo-${pt.key}" style="display:none">
-    </div>`).join('')}` : `<div class="hint">Foto & dokumen bisa ditambahkan setelah data ini disimpan (buka lagi lewat Data KPM).</div>`}
+    </details>` : `<div class="hint">Foto & dokumen bisa ditambahkan setelah data ini disimpan (buka lagi lewat Data KPM).</div>`}
     <div class="btn-row" style="margin-top:14px">
       <button class="btn" id="save-kpm">${isNew ? 'Tambah KPM' : 'Simpan Perubahan'}</button>
     </div>
@@ -1027,6 +1033,18 @@ function renderAbsensiView() {
     <p>Pilih desa & kelompok untuk menampilkan daftar pengurus.</p>
   </div>` : anggota.length === 0 ? `
   <div class="card empty-state"><p>Tidak ada KPM aktif di kelompok ini.</p></div>` : `
+  <div class="card kehadiran-mode-card">
+    <div class="field" style="margin-bottom:0">
+      <label>Kehadiran — Cek Online atau Manual?</label>
+      <select id="a-pdf-mode">
+        <option value="aplikasi" ${absensiPdfMode === 'aplikasi' ? 'selected' : ''}>Cek Online (isi Hadir / Sakit / Alpa lewat aplikasi)</option>
+        <option value="kosong" ${absensiPdfMode === 'kosong' ? 'selected' : ''}>Cetak Manual (kosongkan, tanda tangan basah oleh KPM)</option>
+      </select>
+    </div>
+    <div class="hint">${absensiPdfMode === 'kosong'
+      ? 'Kolom kehadiran dikosongkan — lembar ini akan diprint lalu ditandatangani langsung oleh KPM di lokasi.'
+      : 'Kolom kehadiran diisi lewat aplikasi (Hadir / Izin / Sakit / Alpa) dan ikut tercetak di PDF.'}</div>
+  </div>
   <div class="table-wrap">
     <table>
       <thead><tr><th>No</th><th>Nama Pengurus</th><th>No KK</th><th>Alamat</th><th>RT</th><th>RW</th><th>Kehadiran</th></tr></thead>
@@ -1040,20 +1058,22 @@ function renderAbsensiView() {
             <td>${esc(k.rt || '-')}</td>
             <td>${esc(k.rw || '-')}</td>
             <td>
+              ${absensiPdfMode === 'kosong' ? `<span class="kehadiran-blank">— ttd —</span>` : `
               <select class="absen-status" data-nokk="${esc(k.noKK)}" style="padding:6px 8px;font-size:12px">
                 <option value="Hadir" ${statusMap[k.noKK] === 'Hadir' || !statusMap[k.noKK] ? 'selected' : ''}>Hadir</option>
                 <option value="Izin" ${statusMap[k.noKK] === 'Izin' ? 'selected' : ''}>Izin</option>
                 <option value="Sakit" ${statusMap[k.noKK] === 'Sakit' ? 'selected' : ''}>Sakit</option>
                 <option value="Alpa" ${statusMap[k.noKK] === 'Alpa' ? 'selected' : ''}>Alpa</option>
-              </select>
+              </select>`}
             </td>
           </tr>`).join('')}
       </tbody>
     </table>
   </div>
+
   <div style="height:64px"></div>
   <div class="sticky-actions">
-    <button class="btn secondary" id="save-absensi">Simpan</button>
+    ${absensiPdfMode === 'kosong' ? '' : '<button class="btn secondary" id="save-absensi">Simpan</button>'}
     <button class="btn gold" id="export-absensi-pdf">Export PDF</button>
     <button class="btn" id="share-absensi-pdf" style="background:var(--navy-700)">
       <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
@@ -1069,6 +1089,7 @@ function bindAbsensiView() {
   document.getElementById('a-desa').addEventListener('change', e => { absensiSel.desa = e.target.value; absensiSel.kelompok = ''; render(); });
   document.getElementById('a-kelompok')?.addEventListener('change', e => { absensiSel.kelompok = e.target.value; render(); });
   document.getElementById('a-tanggal').addEventListener('change', e => { absensiSel.tanggal = e.target.value; render(); });
+  document.getElementById('a-pdf-mode')?.addEventListener('change', e => { absensiPdfMode = e.target.value; render(); });
 
   document.getElementById('save-absensi')?.addEventListener('click', () => {
     const rows = [...document.querySelectorAll('.absen-status')].map(sel => ({
@@ -1094,46 +1115,78 @@ function buildAbsensiDoc() {
   const statusMap = Object.fromEntries(statuses.map(s => [s.dataset.nokk, s.value]));
   const modulNama = MODUL_DATA[absensiSel.modul].nama;
   const sesiJudul = MODUL_DATA[absensiSel.modul].sesi[Number(absensiSel.sesi) - 1];
+  const isiOtomatis = absensiPdfMode !== 'kosong';
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 14;
 
+  // Kop surat: logo Kemensos (kiri) & logo PKH (kanan)
+  const logoH = 13;
+  try {
+    if (typeof LOGO_KEMENSOS !== 'undefined') {
+      const w = logoH * LOGO_KEMENSOS_RATIO;
+      doc.addImage(LOGO_KEMENSOS, 'PNG', marginX, 8, w, logoH);
+    }
+  } catch (e) {}
+  try {
+    if (typeof LOGO_PKH !== 'undefined') {
+      const w = logoH * LOGO_PKH_RATIO;
+      doc.addImage(LOGO_PKH, 'PNG', pageW - marginX - w, 8, w, logoH);
+    }
+  } catch (e) {}
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
-  doc.text('DAFTAR HADIR FDS', pageW / 2, 13, { align: 'center' });
+  doc.text('DAFTAR HADIR FDS', pageW / 2, 14, { align: 'center' });
   doc.setFontSize(10.5);
-  const modulLine = doc.splitTextToSize(`${modulNama} — Sesi ${absensiSel.sesi}: ${sesiJudul}`, pageW - marginX * 2);
-  doc.text(modulLine, pageW / 2, 19, { align: 'center' });
-  const afterModulY = 19 + (modulLine.length - 1) * 4.6;
+  const modulLine = doc.splitTextToSize(`${modulNama} — Sesi ${absensiSel.sesi}: ${sesiJudul}`, pageW - marginX * 2 - 70);
+  doc.text(modulLine, pageW / 2, 20, { align: 'center' });
+  const afterModulY = 20 + (modulLine.length - 1) * 4.6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.text(`Desa ${absensiSel.desa} — Kelompok ${absensiSel.kelompok}`, pageW / 2, afterModulY + 6, { align: 'center' });
   doc.text(fmtTanggalPanjang(absensiSel.tanggal), pageW / 2, afterModulY + 11.5, { align: 'center' });
 
-  const startY = afterModulY + 17;
-  const body = anggota.map((k, i) => [i + 1, k.namaPengurus || k.nama, k.noKK, k.alamat || '-', k.rt || '-', k.rw || '-', statusMap[k.noKK] || 'Hadir']);
+  const headerBottomY = Math.max(afterModulY + 15, 8 + logoH + 3);
+  doc.setDrawColor(11, 93, 82);
+  doc.setLineWidth(0.5);
+  doc.line(marginX, headerBottomY, pageW - marginX, headerBottomY);
+
+  const startY = headerBottomY + 5;
+  const statusHeader = isiOtomatis ? 'Status Kehadiran' : 'Tanda Tangan';
+  const body = anggota.map((k, i) => [
+    i + 1,
+    k.namaPengurus || k.nama,
+    k.noKK,
+    k.alamat || '-',
+    k.rt || '-',
+    k.rw || '-',
+    isiOtomatis ? (statusMap[k.noKK] || 'Hadir') : ''
+  ]);
 
   doc.autoTable({
     startY,
-    head: [['No', 'Nama Pengurus', 'No KK', 'Alamat', 'RT', 'RW', 'Status Kehadiran']],
+    margin: { left: marginX, right: marginX },
+    head: [['No', 'Nama Pengurus', 'No KK', 'Alamat', 'RT', 'RW', statusHeader]],
     body,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 2.6 },
-    headStyles: { fillColor: [11, 93, 82], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 2.2 },
+    headStyles: { fillColor: [11, 93, 82], textColor: 255, fontStyle: 'bold', fontSize: 9 },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 70 },
-      4: { cellWidth: 14, halign: 'center' },
-      5: { cellWidth: 14, halign: 'center' },
-      6: { cellWidth: 36, halign: 'center' }
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 34 },
+      3: { cellWidth: 46 },
+      4: { cellWidth: 10, halign: 'center' },
+      5: { cellWidth: 10, halign: 'center' },
+      6: { cellWidth: 34, halign: 'center', minCellHeight: isiOtomatis ? undefined : 10 }
     }
   });
 
   const finalY = doc.lastAutoTable.finalY + 10;
-  const sigX = pageW - 70;
+  const sigX = pageW - marginX - 55;
   doc.setFontSize(10);
   doc.text('Mengetahui,', sigX, finalY);
   doc.text('Pendamping PKH', sigX, finalY + 5);
@@ -1226,15 +1279,6 @@ function renderPengaturanView() {
     <button class="btn gold" id="btn-import-gabungan">Mulai Import Gabungan</button>
   </div>
 
-  <div class="section-title">🌐 Sinkron Online (Lapor Pencairan)</div>
-  <div class="card" style="border:1.5px solid var(--navy-700)">
-    <div class="hint" style="margin-bottom:10px">
-      Export daftar KPM (No KK, Nama, Desa, Kelompok, Status, Nominal) untuk diimport ke tab "Master KPM" di Google Sheet — supaya KPM bisa mencari namanya sendiri di App Lapor Pencairan.
-    </div>
-    <button class="btn secondary" id="btn-export-master-kpm">Export untuk Master KPM (CSV)</button>
-    <div class="hint" style="margin-top:8px">Cara pakai: buka Google Sheet tujuan (lewat browser) → buka/pilih tab "Master KPM" dulu → menu File → Import → Upload → pilih file CSV ini → pada "Import location" pilih "Replace current sheet" (ganti semua) atau "Append to current sheet" (tambah tanpa hapus) → Import data.</div>
-  </div>
-
   <div class="section-title">Daftar Kelompok per Desa</div>
   <div class="card">
     <div class="field">
@@ -1276,7 +1320,6 @@ function bindPengaturanView() {
   document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
   document.getElementById('file-import').addEventListener('change', handleImportExcel);
   document.getElementById('btn-import-gabungan').addEventListener('click', openImportGabunganModal);
-  document.getElementById('btn-export-master-kpm').addEventListener('click', exportMasterKPM);
   document.getElementById('btn-export').addEventListener('click', exportPemutakhiran);
   document.getElementById('btn-reset').addEventListener('click', openResetConfirm);
   document.getElementById('btn-upload-ttd').addEventListener('click', () => document.getElementById('file-ttd').click());
@@ -1873,29 +1916,6 @@ function exportPemutakhiran() {
   const fname = `Pemutakhiran_KPM_${todayISO()}.xlsx`;
   XLSX.writeFile(wb, fname);
   toast('Data pemutakhiran diunduh');
-}
-
-function exportMasterKPM() {
-  const rows = kpmData.map(k => ({
-    'No KK': `="${String(k.noKK || '').trim()}"`,
-    'Nama': k.namaPengurus || k.nama,
-    'Desa': k.desa,
-    'Kelompok': k.kelompok,
-    'Status Aktif': k.statusAktif === false ? 'Nonaktif' : 'Aktif',
-    'Nominal': Number(k.nominal) || 0
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const csv = XLSX.utils.sheet_to_csv(ws);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Master_KPM_${todayISO()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('File Master KPM (CSV) diunduh — tinggal import ke Google Sheet');
 }
 
 /* ============================================================

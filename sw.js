@@ -1,7 +1,8 @@
-const CACHE_NAME = 'kpm-dampingan-v2';
+const CACHE_NAME = 'kpm-dampingan-v3';
 const ASSETS = [
   './index.html',
   './app.js',
+  './logos.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
