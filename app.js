@@ -554,7 +554,7 @@ function renderDataResults() {
           const kc = kelompokColor(k.kelompok);
           return `
           <tr>
-            <td><strong class="kpm-name-link" data-id="${k._id}" data-act="edit-kpm">${esc(k.nama)}</strong>${k.perluLengkapi ? '<span class="badge-lengkapi">⚠ Lengkapi Data</span>' : ''}<br><span style="color:var(--ink-400);font-size:11px">${esc(k.noKK)}</span></td>
+            <td><strong class="kpm-name-link" data-id="${k._id}" data-act="edit-kpm">${esc(k.nama)}</strong>${k.perluLengkapi ? '<span class="badge-lengkapi">⚠ Lengkapi Data</span>' : ''}<br><span style="color:var(--ink-400);font-size:11px">${esc(k.noKK)}</span>${k.komponenDetail && k.komponenDetail.length ? `<br><span style="color:var(--navy-800);font-size:11px">👨‍👩‍👧 ${k.komponenDetail.length} anggota komponen</span>` : ''}</td>
             <td>${esc(k.desa)}</td>
             <td><span class="badge" style="background:${kc.bg};color:${kc.fg}">${esc(k.kelompok || 'Tanpa kelompok')}</span></td>
             <td>
@@ -675,6 +675,28 @@ function openKpmForm(k) {
       </div>
     </div>
     <div class="field"><label>Alamat</label><input type="text" id="edit-alamat" value="${esc(k?.alamat || '')}" placeholder="Alamat"></div>
+    ${!isNew && (k?.nikPengurus || (k?.komponenDetail && k.komponenDetail.length)) ? `
+    <div class="field">
+      <label>NIK Pengurus</label>
+      <input type="text" id="edit-nik-pengurus" value="${esc(k?.nikPengurus || '')}" placeholder="NIK Pengurus">
+    </div>` : ''}
+    ${!isNew && k?.komponenDetail && k.komponenDetail.length ? `
+    <details class="foto-details">
+      <summary class="foto-summary">
+        Anggota Komponen (${k.komponenDetail.length})
+        <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </summary>
+      <div class="foto-body">
+        ${k.komponenDetail.map(a => `
+        <div class="row" style="border-bottom:1px solid var(--line); padding:8px 0">
+          <div class="k">${esc(a.nama)}<br><span style="color:var(--ink-400);font-size:11px">${esc(a.nik)}</span></div>
+          <div class="v" style="text-align:right">
+            <span class="badge" style="background:var(--navy-100);color:var(--navy-800)">${esc(a.jenis)}</span>
+            ${a.status ? `<br><span style="color:var(--ink-400);font-size:11px">${esc(a.status)}</span>` : ''}
+          </div>
+        </div>`).join('')}
+      </div>
+    </details>` : ''}
     <div class="field-row-compact">
       <div class="field w-narrow"><label>RT</label><input type="text" id="edit-rt" value="${esc(k?.rt || '')}" placeholder="RT"></div>
       <div class="field w-narrow"><label>RW</label><input type="text" id="edit-rw" value="${esc(k?.rw || '')}" placeholder="RW"></div>
@@ -812,6 +834,8 @@ function openKpmForm(k) {
     k.statusAktif = document.getElementById('edit-aktif').value === 'aktif';
     k.statusBaku = document.getElementById('edit-statusbaku').value;
     k.catatanPengaduan = document.getElementById('edit-catatan').value.trim();
+    const nikPengurusEl = document.getElementById('edit-nik-pengurus');
+    if (nikPengurusEl) k.nikPengurus = nikPengurusEl.value.trim();
 
     if (k.perluLengkapi && k.desa && k.alamat) k.perluLengkapi = false;
 
@@ -1271,6 +1295,15 @@ function renderPengaturanView() {
     <div class="hint">Export ini berisi data teks saja (tanpa foto). Lakukan secara berkala sebagai cadangan.</div>
   </div>
 
+  <div class="section-title">👨‍👩‍👧 Import Detail Komponen</div>
+  <div class="card" style="border:1.5px solid var(--navy-100)">
+    <div class="hint" style="margin-bottom:10px">
+      Untuk file "Data Semua Komponen" (kolom NIK Komponen, Nama Komponen, Komponen, Status, Nama Pengurus, NIK Pengurus, No KK). Data akan dicocokkan ke KPM berdasarkan No KK, lalu Nama Pengurus, NIK Pengurus, dan daftar anggota komponen otomatis terisi/tampil di Detail KPM.
+    </div>
+    <button class="btn secondary" id="btn-import-komponen">Import Data Semua Komponen</button>
+    <input type="file" id="file-import-komponen" accept=".xlsx,.xls" style="display:none">
+  </div>
+
   <div class="section-title">✨ Import Gabungan (Excel + CSV)</div>
   <div class="card" style="border:1.5px solid var(--amber-500)">
     <div class="hint" style="margin-bottom:10px">
@@ -1320,6 +1353,8 @@ function bindPengaturanView() {
   document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
   document.getElementById('file-import').addEventListener('change', handleImportExcel);
   document.getElementById('btn-import-gabungan').addEventListener('click', openImportGabunganModal);
+  document.getElementById('btn-import-komponen').addEventListener('click', () => document.getElementById('file-import-komponen').click());
+  document.getElementById('file-import-komponen').addEventListener('change', handleImportKomponen);
   document.getElementById('btn-export').addEventListener('click', exportPemutakhiran);
   document.getElementById('btn-reset').addEventListener('click', openResetConfirm);
   document.getElementById('btn-upload-ttd').addEventListener('click', () => document.getElementById('file-ttd').click());
@@ -1538,6 +1573,99 @@ function importRows(rows) {
   saveData();
   render();
   toast(`Import selesai: ${added} baru, ${updated} diperbarui`);
+}
+
+/* ============================================================
+   IMPORT DETAIL KOMPONEN (Data Semua Komponen)
+   Format kolom: NIK Komponen | Nama Komponen | Komponen | Status |
+                 Nama Pengurus | NIK Pengurus | No KK | Desa | Alamat | RT | RW
+   ============================================================ */
+function handleImportKomponen(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const wb = XLSX.read(evt.target.result, { type: 'array' });
+      // Ambil sheet yang punya kolom "No KK" & "NIK Komponen" (lewati sheet DEBUG bila ada)
+      let rows = [];
+      for (const name of wb.SheetNames) {
+        const candidate = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '' });
+        if (candidate.length && hasCol(candidate[0], 'No KK') && hasCol(candidate[0], 'NIK Komponen')) {
+          rows = candidate;
+          break;
+        }
+      }
+      if (!rows.length) {
+        toast('Sheet dengan kolom "No KK" & "NIK Komponen" tidak ditemukan di file ini');
+      } else {
+        importKomponenRows(rows);
+      }
+    } catch (err) {
+      toast('Gagal membaca file Excel');
+      console.error(err);
+    }
+    e.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function importKomponenRows(rows) {
+  // Kelompokkan baris per No KK (dinormalisasi ke digit saja, biar tahan format beda-beda)
+  const groups = new Map();
+  rows.forEach(r => {
+    const noKKRaw = String(pick(r, 'No KK', 'NOKK') || '').trim();
+    const kkNorm = normKKIg(noKKRaw);
+    if (!kkNorm) return;
+    if (!groups.has(kkNorm)) groups.set(kkNorm, []);
+    groups.get(kkNorm).push({
+      nik: String(pick(r, 'NIK Komponen') || '').trim(),
+      nama: String(pick(r, 'Nama Komponen') || '').trim(),
+      jenis: String(pick(r, 'Komponen') || '').trim(),
+      status: String(pick(r, 'Status') || '').trim(),
+      namaPengurus: String(pick(r, 'Nama Pengurus') || '').trim(),
+      nikPengurus: String(pick(r, 'NIK Pengurus') || '').trim()
+    });
+  });
+
+  let kkUpdated = 0, anggotaBaru = 0, anggotaDiperbarui = 0;
+  const notFound = [];
+
+  groups.forEach((anggotaList, kkNorm) => {
+    const existing = kpmData.find(k => normKKIg(k.noKK) === kkNorm);
+    if (!existing) {
+      notFound.push({ noKK: kkNorm, namaPengurus: anggotaList[0]?.namaPengurus || '' });
+      return;
+    }
+    kkUpdated++;
+    const first = anggotaList[0];
+    if (!existing.namaPengurus && first.namaPengurus) existing.namaPengurus = first.namaPengurus;
+    if (first.nikPengurus) existing.nikPengurus = first.nikPengurus;
+
+    if (!Array.isArray(existing.komponenDetail)) existing.komponenDetail = [];
+    anggotaList.forEach(a => {
+      if (!a.nik) return;
+      const idx = existing.komponenDetail.findIndex(d => d.nik === a.nik);
+      const entry = { nik: a.nik, nama: a.nama, jenis: a.jenis, status: a.status };
+      if (idx === -1) {
+        existing.komponenDetail.push(entry);
+        anggotaBaru++;
+      } else {
+        existing.komponenDetail[idx] = entry;
+        anggotaDiperbarui++;
+      }
+    });
+  });
+
+  saveData();
+  render();
+
+  let msg = `Import komponen selesai: ${kkUpdated} KK diperbarui, ${anggotaBaru} anggota baru, ${anggotaDiperbarui} anggota diperbarui`;
+  if (notFound.length) {
+    msg += `. ${notFound.length} No KK tidak ditemukan di data KPM`;
+    console.warn('No KK tidak ditemukan saat import komponen:', notFound);
+  }
+  toast(msg);
 }
 
 /* ============================================================
@@ -1885,6 +2013,7 @@ function exportPemutakhiran() {
     'No': i + 1,
     'Nama': k.nama,
     'Nama Pengurus': k.namaPengurus || '',
+    'NIK Pengurus': k.nikPengurus || '',
     'No KK': k.noKK,
     'Desa': k.desa,
     'Alamat': k.alamat,
