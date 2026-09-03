@@ -6,7 +6,8 @@
 const LS_KEYS = {
   data: 'kpm_data_v1',
   settings: 'kpm_settings_v1',
-  absensi: 'kpm_absensi_v1'
+  absensi: 'kpm_absensi_v1',
+  jurnal: 'kpm_jurnal_v1'
 };
 
 const STATUS_OPTIONS = [
@@ -78,8 +79,11 @@ const MODUL_DATA = {
 
 /* ---------------- State ---------------- */
 let kpmData = loadJSON(LS_KEYS.data, []);
-let settings = loadJSON(LS_KEYS.settings, { namaPendamping: '', nip: '', tandaTanganDataUrl: '', kelompokByDesa: {} });
+let settings = loadJSON(LS_KEYS.settings, { namaPendamping: '', nip: '', tandaTanganDataUrl: '', kelompokByDesa: {}, kecamatan: 'Gurah', kabupaten: 'Kediri', provinsi: 'Jawa Timur' });
 if (!settings.kelompokByDesa) settings.kelompokByDesa = {};
+if (settings.kecamatan === undefined) settings.kecamatan = 'Gurah';
+if (settings.kabupaten === undefined) settings.kabupaten = 'Kediri';
+if (settings.provinsi === undefined) settings.provinsi = 'Jawa Timur';
 let absensiStore = loadJSON(LS_KEYS.absensi, {}); // key -> [{noKK,nama,status}]
 
 let currentView = 'beranda';
@@ -89,6 +93,37 @@ let _kelompokMasterDesaSel = '';
 let statusSearch = '';
 let absensiSel = { modul: '1', sesi: '1', desa: '', kelompok: '', tanggal: todayISO() };
 let absensiPdfMode = 'aplikasi'; // 'aplikasi' = isi status dari aplikasi, 'kosong' = kosongkan untuk tanda tangan manual
+let verifKomponenSel = { desa: '', jenis: 'AUD', bulanMulai: new Date().getMonth() + 1, tahun: new Date().getFullYear() };
+let jurnalStore = loadJSON(LS_KEYS.jurnal, {}); // 'YYYY-MM-DD' -> [{id, rhk, jamMulai, jamSelesai, keterangan}]
+let jurnalTanggalAktif = todayISO();
+
+const RHK_LIST = [
+  { id: '1', label: 'Penyaluran bansos KPM tepat sasaran & jumlah' },
+  { id: '2', label: 'Pertemuan P2K2' },
+  { id: '3', label: 'Verifikasi Komitmen Pendidikan/Kesehatan/Kesos' },
+  { id: '4', label: 'Data KPM Graduasi' },
+  { id: '5', label: 'Verifikasi, Validasi & Pemutakhiran Data KPM' },
+  { id: '6', label: 'Respon kasus/pengaduan/kebencanaan/kerentanan' },
+  { id: '7', label: 'Analisis Laporan Bulanan' },
+  { id: '8', label: 'Direktif pimpinan (penugasan Kemensos)' },
+  { id: '9', label: 'Penyebaran Berita Baik Kemensos' }
+];
+function rhkLabel(id) {
+  const r = RHK_LIST.find(x => x.id === id);
+  return r ? `RHK ${r.id} — ${r.label}` : `RHK ${id}`;
+}
+function jamToDecimal(hhmm) {
+  if (!hhmm) return 0;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h + m / 60;
+}
+
+const JENIS_KOMPONEN_EXPORT = {
+  AUD: { label: 'BALITA', matchJenis: ['ANAK USIA DINI', 'AUD', 'BALITA'] },
+  LANSIA: { label: 'LANSIA', matchJenis: ['LANSIA'] },
+  DISABILITAS: { label: 'DISABILITAS', matchJenis: ['DISABILITAS'] }
+};
+const NAMA_BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
 /* ============================================================
    PWA INSTALL PROMPT HANDLING
@@ -161,6 +196,7 @@ function loadJSON(key, fallback) {
 function saveData() { localStorage.setItem(LS_KEYS.data, JSON.stringify(kpmData)); }
 function saveSettings() { localStorage.setItem(LS_KEYS.settings, JSON.stringify(settings)); }
 function saveAbsensi() { localStorage.setItem(LS_KEYS.absensi, JSON.stringify(absensiStore)); }
+function saveJurnal() { localStorage.setItem(LS_KEYS.jurnal, JSON.stringify(jurnalStore)); }
 
 /* ============================================================
    FOTO KPM — disimpan di IndexedDB (bukan localStorage) karena
@@ -287,6 +323,16 @@ function fmtTanggalPanjang(iso) {
   return `${d} ${bln[m - 1]} ${y}`;
 }
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function shiftISODate(iso, delta) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+function fmtTanggalHari(iso) {
+  const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const d = new Date(iso + 'T00:00:00');
+  return `${hari[d.getDay()]}, ${fmtTanggalPanjang(iso)}`;
+}
 function esc(s) { return (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ---------------- Derived helpers ---------------- */
@@ -404,11 +450,110 @@ function render() {
 }
 
 /* ============================================================
+   JURNAL KEGIATAN HARIAN
+   ============================================================ */
+function renderJurnalCard() {
+  const tgl = jurnalTanggalAktif;
+  const entries = (jurnalStore[tgl] || []).slice().sort((a, b) => a.jamMulai.localeCompare(b.jamMulai));
+  const totalMenit = entries.reduce((s, e) => s + Math.max(0, (jamToDecimal(e.jamSelesai) - jamToDecimal(e.jamMulai)) * 60), 0);
+  const totalJamStr = (totalMenit / 60).toFixed(1).replace('.', ',');
+
+  return `
+  <div class="section-title">📅 Jurnal Kegiatan Harian</div>
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px">
+      <button class="icon-btn-sm" id="jurnal-prev" title="Hari sebelumnya">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div id="jurnal-date-label" style="text-align:center; font-weight:700; font-family:'Poppins',sans-serif; font-size:13.5px; cursor:pointer">
+        ${fmtTanggalHari(tgl)}${tgl === todayISO() ? ' <span style="color:var(--navy-800); font-weight:600; font-size:11px">(Hari ini)</span>' : ''}
+      </div>
+      <button class="icon-btn-sm" id="jurnal-next" title="Hari berikutnya">
+        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </div>
+    <input type="date" id="jurnal-date-picker" value="${tgl}" style="position:absolute; opacity:0; pointer-events:none; height:0">
+    <div class="hint" style="text-align:center; margin-bottom:10px">Total jam tercatat: <strong style="color:var(--navy-800)">${totalJamStr} jam</strong> (target 7,5 jam)</div>
+
+    <div id="jurnal-list">
+      ${entries.length ? entries.map(e => `
+      <div class="row" data-jurnal-id="${esc(e.id)}" style="border-bottom:1px solid var(--line); padding:8px 0">
+        <div class="k">
+          <span style="font-weight:700; color:var(--navy-800)">${esc(e.jamMulai)}–${esc(e.jamSelesai)}</span><br>
+          <span style="font-size:12.5px">${esc(rhkLabel(e.rhk))}</span>
+          ${e.keterangan ? `<br><span style="font-size:11px; color:var(--ink-400)">${esc(e.keterangan)}</span>` : ''}
+        </div>
+        <div class="v">
+          <button class="icon-btn-sm" type="button" data-act="del-jurnal" data-id="${esc(e.id)}" title="Hapus">
+            <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+          </button>
+        </div>
+      </div>`).join('') : `<div class="hint" style="text-align:center; padding:10px 0">Belum ada kegiatan tercatat di hari ini.</div>`}
+    </div>
+
+    <div class="card" style="background:var(--navy-50); padding:10px; margin-top:10px">
+      <div class="field">
+        <label>RHK</label>
+        <select id="jurnal-rhk">
+          ${RHK_LIST.map(r => `<option value="${r.id}">RHK ${r.id} — ${esc(r.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Jam Mulai</label><input type="time" id="jurnal-jam-mulai" value="07:30"></div>
+        <div class="field"><label>Jam Selesai</label><input type="time" id="jurnal-jam-selesai" value="16:00"></div>
+      </div>
+      <div class="field"><label>Keterangan (opsional)</label><input type="text" id="jurnal-keterangan" placeholder="Contoh: P2K2 Kelompok Templek"></div>
+      <button class="btn secondary" type="button" id="btn-jurnal-add" style="margin-top:2px">+ Tambah Kegiatan</button>
+    </div>
+  </div>`;
+}
+
+function bindJurnalCard() {
+  document.getElementById('jurnal-prev').addEventListener('click', () => {
+    jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, -1);
+    render();
+  });
+  document.getElementById('jurnal-next').addEventListener('click', () => {
+    jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, 1);
+    render();
+  });
+  const picker = document.getElementById('jurnal-date-picker');
+  document.getElementById('jurnal-date-label').addEventListener('click', () => {
+    if (picker.showPicker) picker.showPicker(); else picker.click();
+  });
+  picker.addEventListener('change', () => {
+    if (picker.value) { jurnalTanggalAktif = picker.value; render(); }
+  });
+  document.querySelectorAll('[data-act="del-jurnal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      jurnalStore[jurnalTanggalAktif] = (jurnalStore[jurnalTanggalAktif] || []).filter(e => e.id !== id);
+      saveJurnal();
+      render();
+    });
+  });
+  document.getElementById('btn-jurnal-add').addEventListener('click', () => {
+    const rhk = document.getElementById('jurnal-rhk').value;
+    const jamMulai = document.getElementById('jurnal-jam-mulai').value;
+    const jamSelesai = document.getElementById('jurnal-jam-selesai').value;
+    const keterangan = document.getElementById('jurnal-keterangan').value.trim();
+    if (!jamMulai || !jamSelesai) { toast('Isi jam mulai & jam selesai'); return; }
+    if (jamToDecimal(jamSelesai) <= jamToDecimal(jamMulai)) { toast('Jam selesai harus setelah jam mulai'); return; }
+    if (!jurnalStore[jurnalTanggalAktif]) jurnalStore[jurnalTanggalAktif] = [];
+    jurnalStore[jurnalTanggalAktif].push({ id: uid(), rhk, jamMulai, jamSelesai, keterangan });
+    saveJurnal();
+    render();
+    toast('Kegiatan ditambahkan');
+  });
+}
+
+/* ============================================================
    BERANDA (DASHBOARD)
    ============================================================ */
 function renderBeranda() {
+  const jurnalHtml = renderJurnalCard();
   if (kpmData.length === 0) {
-    return `
+    return jurnalHtml + `
     <div class="card empty-state">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
       <p>Belum ada data KPM.<br>Import data Excel lewat menu Pengaturan.</p>
@@ -438,6 +583,7 @@ function renderBeranda() {
   ];
 
   return `
+  ${jurnalHtml}
   <div class="stat-grid">
     <div class="stat-card">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
@@ -495,6 +641,7 @@ function renderBeranda() {
 }
 
 function bindBerandaView() {
+  bindJurnalCard();
   document.getElementById('beranda-desa-filter')?.addEventListener('change', e => {
     berandaDesaFilter = e.target.value;
     render();
@@ -669,7 +816,7 @@ function renderKomponenDetailRow(a) {
 
 function bindKomponenDetailEvents(k) {
   const listEl = document.getElementById('komponen-detail-list');
-  const labelEl = listEl?.closest('.field')?.querySelector('label');
+  const labelEl = document.getElementById('komponen-detail-summary');
   const refreshCount = () => {
     if (labelEl) labelEl.textContent = `Anggota Komponen${k.komponenDetail?.length ? ` (${k.komponenDetail.length})` : ''}`;
   };
@@ -761,29 +908,34 @@ function openKpmForm(k) {
       </button>
     </div>` : ''}
     ${!isNew ? `
-    <div class="field">
-      <label>Anggota Komponen ${k?.komponenDetail?.length ? `(${k.komponenDetail.length})` : ''}</label>
-      <div id="komponen-detail-list">
-        ${(k.komponenDetail || []).map(a => renderKomponenDetailRow(a)).join('')}
-      </div>
-      <div class="card" style="background:var(--navy-50); padding:10px; margin-top:8px">
-        <div class="field-row">
-          <div class="field"><label>Nama Anggota</label><input type="text" id="add-komp-nama" placeholder="Nama anggota"></div>
-          <div class="field"><label>NIK (opsional)</label><input type="text" id="add-komp-nik" placeholder="NIK"></div>
+    <details class="foto-details" style="margin-bottom:14px">
+      <summary class="foto-summary">
+        <span id="komponen-detail-summary">Anggota Komponen${k?.komponenDetail?.length ? ` (${k.komponenDetail.length})` : ''}</span>
+        <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </summary>
+      <div class="foto-body">
+        <div id="komponen-detail-list">
+          ${(k.komponenDetail || []).map(a => renderKomponenDetailRow(a)).join('')}
         </div>
-        <div class="field-row">
-          <div class="field">
-            <label>Jenis Komponen</label>
-            <input type="text" list="komponen-jenis-suggest" id="add-komp-jenis" placeholder="Contoh: SEKOLAH">
-            <datalist id="komponen-jenis-suggest">
-              <option value="ANAK USIA DINI"><option value="SEKOLAH"><option value="LANSIA"><option value="DISABILITAS"><option value="HAMIL">
-            </datalist>
+        <div class="card" style="background:var(--navy-50); padding:10px; margin-top:8px">
+          <div class="field-row">
+            <div class="field"><label>Nama Anggota</label><input type="text" id="add-komp-nama" placeholder="Nama anggota"></div>
+            <div class="field"><label>NIK (opsional)</label><input type="text" id="add-komp-nik" placeholder="NIK"></div>
           </div>
-          <div class="field"><label>Status (opsional)</label><input type="text" id="add-komp-status" placeholder="Status"></div>
+          <div class="field-row">
+            <div class="field">
+              <label>Jenis Komponen</label>
+              <input type="text" list="komponen-jenis-suggest" id="add-komp-jenis" placeholder="Contoh: SEKOLAH">
+              <datalist id="komponen-jenis-suggest">
+                <option value="ANAK USIA DINI"><option value="SEKOLAH"><option value="LANSIA"><option value="DISABILITAS"><option value="HAMIL">
+              </datalist>
+            </div>
+            <div class="field"><label>Status (opsional)</label><input type="text" id="add-komp-status" placeholder="Status"></div>
+          </div>
+          <button class="btn secondary" type="button" id="btn-add-komponen" style="margin-top:2px">+ Tambah Anggota</button>
         </div>
-        <button class="btn secondary" type="button" id="btn-add-komponen" style="margin-top:2px">+ Tambah Anggota</button>
       </div>
-    </div>` : `<div class="hint">Anggota komponen bisa ditambahkan setelah data ini disimpan (buka lagi lewat Data KPM).</div>`}
+    </details>` : `<div class="hint">Anggota komponen bisa ditambahkan setelah data ini disimpan (buka lagi lewat Data KPM).</div>`}
     <div class="field-row-compact">
       <div class="field w-narrow"><label>RT</label><input type="text" id="edit-rt" value="${esc(k?.rt || '')}" placeholder="RT"></div>
       <div class="field w-narrow"><label>RW</label><input type="text" id="edit-rw" value="${esc(k?.rw || '')}" placeholder="RW"></div>
@@ -1311,6 +1463,93 @@ function buildAbsensiDoc() {
   return { doc, fname };
 }
 
+function buildVerifikasiKomponenDoc(sel) {
+  const cfg = JENIS_KOMPONEN_EXPORT[sel.jenis];
+  const desaFilter = sel.desa;
+  const kpmList = kpmData.filter(k => (!desaFilter || k.desa === desaFilter) && Array.isArray(k.komponenDetail) && k.komponenDetail.length);
+
+  const rows = [];
+  kpmList.forEach(k => {
+    k.komponenDetail.forEach(a => {
+      const jenisUp = String(a.jenis || '').toUpperCase();
+      if (cfg.matchJenis.some(m => jenisUp.includes(m))) {
+        rows.push({ pengurus: k.namaPengurus || k.nama, nama: a.nama, noKK: k.noKK, nik: a.nik || '-', alamat: k.alamat || '-', rt: k.rt || '-', rw: k.rw || '-' });
+      }
+    });
+  });
+  rows.sort((a, b) => a.pengurus.localeCompare(b.pengurus));
+
+  const bulanIdx = [0, 1, 2].map(i => (sel.bulanMulai - 1 + i) % 12);
+  const bulanLabels = bulanIdx.map(i => NAMA_BULAN[i]);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const marginX = 12;
+
+  const logoH = 15;
+  try { if (typeof LOGO_PKH !== 'undefined') { const w = logoH * LOGO_PKH_RATIO; doc.addImage(LOGO_PKH, 'PNG', marginX, 8, w, logoH); } } catch (e) {}
+  try { if (typeof LOGO_KEMENSOS !== 'undefined') { const w = logoH * LOGO_KEMENSOS_RATIO; doc.addImage(LOGO_KEMENSOS, 'PNG', pageW - marginX - w, 8, w, logoH); } } catch (e) {}
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('PROGRAM KELUARGA HARAPAN', pageW / 2, 12, { align: 'center' });
+  doc.text(`KECAMATAN ${(settings.kecamatan || '').toUpperCase()}`, pageW / 2, 18, { align: 'center' });
+  doc.text(`KABUPATEN ${(settings.kabupaten || '').toUpperCase()} - PROVINSI ${(settings.provinsi || '').toUpperCase()}`, pageW / 2, 24, { align: 'center' });
+
+  doc.setFontSize(11.5);
+  doc.text(`DAFTAR VERIFIKASI KOMITMEN ${cfg.label}`, pageW / 2, 33, { align: 'center' });
+  const desaLabel = desaFilter ? `DESA ${desaFilter.toUpperCase()}` : 'SELURUH DESA DAMPINGAN';
+  doc.text(`PENERIMA BANSOS PKH ${desaLabel} KECAMATAN ${(settings.kecamatan || '').toUpperCase()}`, pageW / 2, 39, { align: 'center' });
+
+  const startY = 46;
+  const body = rows.map((r, i) => [i + 1, r.pengurus, r.nama, r.noKK, r.nik, r.alamat, r.rt, r.rw, '', '', '']);
+
+  doc.autoTable({
+    startY,
+    margin: { left: marginX, right: marginX },
+    head: [['No', 'Nama Pengurus', `Nama ${cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase()}`, 'No. KK', `NIK ${cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase()}`, 'Alamat', 'RT', 'RW', ...bulanLabels]],
+    body,
+    theme: 'grid',
+    styles: { fontSize: 8.5, cellPadding: 2 },
+    headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold', fontSize: 8.5, halign: 'center' },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 38 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 30 },
+      5: { cellWidth: 40 },
+      6: { cellWidth: 9, halign: 'center' },
+      7: { cellWidth: 9, halign: 'center' },
+      8: { cellWidth: 14, halign: 'center' },
+      9: { cellWidth: 14, halign: 'center' },
+      10: { cellWidth: 14, halign: 'center' }
+    }
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 12;
+  const sigX = pageW - marginX - 60;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Pendamping Sosial', sigX, finalY);
+  doc.text('_______________________', sigX, finalY + 24);
+  doc.setFont('helvetica', 'bold');
+  doc.text(settings.namaPendamping || '(...........................)', sigX, finalY + 29);
+  doc.setFont('helvetica', 'normal');
+  if (settings.nip) doc.text(`NIP. ${settings.nip}`, sigX, finalY + 34);
+
+  const fname = `Verifikasi_${cfg.label}_${desaFilter || 'SemuaDesa'}_${sel.tahun}.pdf`;
+  return { doc, fname, jumlah: rows.length };
+}
+
+function exportVerifikasiKomponenPDF() {
+  const res = buildVerifikasiKomponenDoc(verifKomponenSel);
+  if (!res.jumlah) { toast('Tidak ada data anggota komponen untuk kombinasi ini'); return; }
+  res.doc.save(res.fname);
+  toast(`PDF diunduh — ${res.jumlah} anggota`);
+}
+
 function exportAbsensiPDF() {
   const { doc, fname } = buildAbsensiDoc();
   doc.save(fname);
@@ -1347,6 +1586,11 @@ function renderPengaturanView() {
   <div class="card">
     <div class="field"><label>Nama Pendamping</label><input type="text" id="set-nama" value="${esc(settings.namaPendamping)}"></div>
     <div class="field"><label>NIP</label><input type="text" id="set-nip" value="${esc(settings.nip)}"></div>
+    <div class="field-row">
+      <div class="field"><label>Kecamatan</label><input type="text" id="set-kecamatan" value="${esc(settings.kecamatan)}" placeholder="Contoh: Gurah"></div>
+      <div class="field"><label>Kabupaten</label><input type="text" id="set-kabupaten" value="${esc(settings.kabupaten)}" placeholder="Contoh: Kediri"></div>
+    </div>
+    <div class="field"><label>Provinsi</label><input type="text" id="set-provinsi" value="${esc(settings.provinsi)}" placeholder="Contoh: Jawa Timur"></div>
     <button class="btn" id="save-profil">Simpan Profil</button>
   </div>
 
@@ -1377,6 +1621,40 @@ function renderPengaturanView() {
       <button class="btn gold" id="btn-export">Export Data Pemutakhiran (Excel)</button>
     </div>
     <div class="hint">Export ini berisi data teks saja (tanpa foto). Lakukan secara berkala sebagai cadangan.</div>
+  </div>
+
+  <div class="section-title">📋 Export Verifikasi Komponen</div>
+  <div class="card" style="border:1.5px solid var(--navy-100)">
+    <div class="hint" style="margin-bottom:10px">
+      Cetak Daftar Verifikasi Komitmen (Balita/AUD, Lansia, atau Disabilitas) per desa, format siap tanda tangan basah. Data diambil dari "Anggota Komponen" yang sudah tersimpan di tiap KPM.
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Jenis Komponen</label>
+        <select id="vk-jenis">
+          <option value="AUD" ${verifKomponenSel.jenis === 'AUD' ? 'selected' : ''}>Balita / Anak Usia Dini</option>
+          <option value="LANSIA" ${verifKomponenSel.jenis === 'LANSIA' ? 'selected' : ''}>Lansia</option>
+          <option value="DISABILITAS" ${verifKomponenSel.jenis === 'DISABILITAS' ? 'selected' : ''}>Disabilitas</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Desa</label>
+        <select id="vk-desa">
+          <option value="">Semua Desa</option>
+          ${getDesaList().map(d => `<option value="${esc(d)}" ${verifKomponenSel.desa === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Bulan Mulai (3 bulan berjalan)</label>
+        <select id="vk-bulan">
+          ${NAMA_BULAN.map((b, i) => `<option value="${i + 1}" ${verifKomponenSel.bulanMulai === i + 1 ? 'selected' : ''}>${b}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Tahun</label><input type="number" id="vk-tahun" value="${verifKomponenSel.tahun}"></div>
+    </div>
+    <button class="btn gold" id="btn-export-verifikasi">Export PDF</button>
   </div>
 
   <div class="section-title">👨‍👩‍👧 Import Detail Komponen</div>
@@ -1430,6 +1708,9 @@ function bindPengaturanView() {
   document.getElementById('save-profil').addEventListener('click', () => {
     settings.namaPendamping = document.getElementById('set-nama').value.trim();
     settings.nip = document.getElementById('set-nip').value.trim();
+    settings.kecamatan = document.getElementById('set-kecamatan').value.trim();
+    settings.kabupaten = document.getElementById('set-kabupaten').value.trim();
+    settings.provinsi = document.getElementById('set-provinsi').value.trim();
     saveSettings();
     updateHeaderBadge();
     toast('Profil disimpan');
@@ -1439,6 +1720,12 @@ function bindPengaturanView() {
   document.getElementById('btn-import-gabungan').addEventListener('click', openImportGabunganModal);
   document.getElementById('btn-import-komponen').addEventListener('click', () => document.getElementById('file-import-komponen').click());
   document.getElementById('file-import-komponen').addEventListener('change', handleImportKomponen);
+
+  document.getElementById('vk-jenis').addEventListener('change', (e) => { verifKomponenSel.jenis = e.target.value; });
+  document.getElementById('vk-desa').addEventListener('change', (e) => { verifKomponenSel.desa = e.target.value; });
+  document.getElementById('vk-bulan').addEventListener('change', (e) => { verifKomponenSel.bulanMulai = Number(e.target.value); });
+  document.getElementById('vk-tahun').addEventListener('change', (e) => { verifKomponenSel.tahun = Number(e.target.value) || new Date().getFullYear(); });
+  document.getElementById('btn-export-verifikasi').addEventListener('click', exportVerifikasiKomponenPDF);
   document.getElementById('btn-export').addEventListener('click', exportPemutakhiran);
   document.getElementById('btn-reset').addEventListener('click', openResetConfirm);
   document.getElementById('btn-upload-ttd').addEventListener('click', () => document.getElementById('file-ttd').click());
