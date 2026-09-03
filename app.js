@@ -666,7 +666,14 @@ function openKpmForm(k) {
       <h3>${isNew ? 'Tambah KPM Manual' : 'Detail KPM'}</h3>
       <button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
-    <div class="field"><label>Nama</label><input type="text" id="edit-nama" value="${esc(k?.nama || '')}" placeholder="Nama KPM"></div>
+    <div class="field-row">
+      <div class="field"><label>Nama</label><input type="text" id="edit-nama" value="${esc(k?.nama || '')}" placeholder="Nama KPM"></div>
+      <div class="field">
+        <label>Kelompok</label>
+        <input type="text" list="kelompok-suggest" id="edit-kelompok" value="${esc(k?.kelompok || '')}" placeholder="Nama kelompok">
+        <datalist id="kelompok-suggest">${kelompokList.map(kl => `<option value="${esc(kl)}">`).join('')}</datalist>
+      </div>
+    </div>
     <div class="field-row">
       <div class="field"><label>Desa</label><input type="text" id="edit-desa" value="${esc(k?.desa || '')}" placeholder="Nama desa"></div>
       <div class="field">
@@ -679,6 +686,17 @@ function openKpmForm(k) {
       <label>NIK Pengurus</label>
       <input type="text" id="edit-nik-pengurus" value="${esc(k?.nikPengurus || '')}" placeholder="NIK Pengurus">
     </div>
+    ${!isNew ? `
+    <div class="btn-row" style="margin-bottom:12px">
+      <button class="btn ghost" id="copy-nokk" data-nokk="${esc(k.noKK)}">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Salin No KK
+      </button>
+      <button class="btn ghost" id="copy-nik" data-nik="${esc(k.nikPengurus || '')}">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Salin NIK
+      </button>
+    </div>` : ''}
     ${!isNew && k?.komponenDetail && k.komponenDetail.length ? `
     <details class="foto-details">
       <summary class="foto-summary">
@@ -702,11 +720,6 @@ function openKpmForm(k) {
       <div class="field"><label>No Rekening</label><input type="text" id="edit-noRekening" value="${esc(k?.noRekening || '')}" placeholder="No. rekening"></div>
       <div class="field"><label>No Kartu</label><input type="text" id="edit-noKartu" value="${esc(k?.noKartu || '')}" placeholder="No. kartu"></div>
     </div>
-    ${!isNew ? `
-    <button class="btn ghost" id="copy-nokk" data-nokk="${esc(k.noKK)}" style="margin-bottom:12px">
-      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-      Salin No KK
-    </button>` : ''}
     <div class="field">
       <label>Komponen Dimiliki</label>
       <div class="komp-grid komp-grid-compact">
@@ -717,11 +730,6 @@ function openKpmForm(k) {
           <div class="l">${l}</div>
         </div>`).join('')}
       </div>
-    </div>
-    <div class="field">
-      <label>Kelompok</label>
-      <input type="text" list="kelompok-suggest" id="edit-kelompok" value="${esc(k?.kelompok || '')}" placeholder="Nama kelompok">
-      <datalist id="kelompok-suggest">${kelompokList.map(kl => `<option value="${esc(kl)}">`).join('')}</datalist>
     </div>
     <div class="field">
       <label>Status Keaktifan</label>
@@ -766,6 +774,11 @@ function openKpmForm(k) {
   `);
   if (!isNew) {
     document.getElementById('copy-nokk').addEventListener('click', () => copyToClipboard(k.noKK));
+    document.getElementById('copy-nik').addEventListener('click', () => {
+      const nik = document.getElementById('edit-nik-pengurus').value.trim();
+      if (!nik) { toast('NIK Pengurus masih kosong'); return; }
+      copyToClipboard(nik, 'NIK Pengurus disalin');
+    });
     PHOTO_TYPES.forEach(pt => {
       const fileInput = document.getElementById(`file-photo-${pt.key}`);
       document.querySelector(`[data-photo-take="${pt.key}"]`).addEventListener('click', () => fileInput.click());
