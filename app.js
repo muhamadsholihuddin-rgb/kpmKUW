@@ -651,6 +651,66 @@ const KOMPONEN_FIELDS = [
   ['sma', 'SMA'], ['lansia', 'Lansia'], ['disabilitas', 'Disabilitas']
 ];
 
+function renderKomponenDetailRow(a) {
+  return `
+  <div class="row" data-komp-row="${esc(a._localId)}" style="border-bottom:1px solid var(--line); padding:8px 0">
+    <div class="k">${esc(a.nama)}${a.nik ? `<br><span style="color:var(--ink-400);font-size:11px">${esc(a.nik)}</span>` : ''}</div>
+    <div class="v" style="text-align:right; display:flex; align-items:center; gap:8px; justify-content:flex-end">
+      <span>
+        <span class="badge" style="background:var(--navy-100);color:var(--navy-800)">${esc(a.jenis || '-')}</span>
+        ${a.status ? `<br><span style="color:var(--ink-400);font-size:11px">${esc(a.status)}</span>` : ''}
+      </span>
+      <button class="icon-btn-sm" type="button" data-act="del-komponen" data-localid="${esc(a._localId)}" title="Hapus anggota">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+function bindKomponenDetailEvents(k) {
+  const listEl = document.getElementById('komponen-detail-list');
+  const labelEl = listEl?.closest('.field')?.querySelector('label');
+  const refreshCount = () => {
+    if (labelEl) labelEl.textContent = `Anggota Komponen${k.komponenDetail?.length ? ` (${k.komponenDetail.length})` : ''}`;
+  };
+  listEl?.querySelectorAll('[data-act="del-komponen"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lid = btn.dataset.localid;
+      k.komponenDetail = (k.komponenDetail || []).filter(a => a._localId !== lid);
+      document.querySelector(`[data-komp-row="${lid}"]`)?.remove();
+      refreshCount();
+      saveData();
+      render();
+    });
+  });
+  document.getElementById('btn-add-komponen')?.addEventListener('click', () => {
+    const nama = document.getElementById('add-komp-nama').value.trim();
+    const nik = document.getElementById('add-komp-nik').value.trim();
+    const jenis = document.getElementById('add-komp-jenis').value.trim();
+    const status = document.getElementById('add-komp-status').value.trim();
+    if (!nama) { toast('Nama anggota tidak boleh kosong'); return; }
+    if (!Array.isArray(k.komponenDetail)) k.komponenDetail = [];
+    const entry = { _localId: uid(), nama, nik, jenis, status };
+    k.komponenDetail.push(entry);
+    listEl.insertAdjacentHTML('beforeend', renderKomponenDetailRow(entry));
+    document.querySelector(`[data-komp-row="${entry._localId}"] [data-act="del-komponen"]`).addEventListener('click', function handler() {
+      k.komponenDetail = (k.komponenDetail || []).filter(a => a._localId !== entry._localId);
+      document.querySelector(`[data-komp-row="${entry._localId}"]`)?.remove();
+      refreshCount();
+      saveData();
+      render();
+    });
+    document.getElementById('add-komp-nama').value = '';
+    document.getElementById('add-komp-nik').value = '';
+    document.getElementById('add-komp-jenis').value = '';
+    document.getElementById('add-komp-status').value = '';
+    refreshCount();
+    saveData();
+    render();
+    toast('Anggota komponen ditambahkan');
+  });
+}
+
 function openEditKpm(id) {
   openKpmForm(kpmData.find(x => x._id === id));
 }
@@ -659,6 +719,9 @@ function openEditKpm(id) {
 function openKpmForm(k) {
   const isNew = !k;
   if (isNew) k = null; // hanya untuk kejelasan; nilai default diambil dari '' di bawah
+  if (!isNew && Array.isArray(k.komponenDetail)) {
+    k.komponenDetail.forEach(a => { if (!a._localId) a._localId = uid(); });
+  }
   const kelompokList = getKelompokList(k ? k.desa : '');
   const komponenFields = KOMPONEN_FIELDS;
   openModal(`
@@ -697,23 +760,30 @@ function openKpmForm(k) {
         Salin NIK
       </button>
     </div>` : ''}
-    ${!isNew && k?.komponenDetail && k.komponenDetail.length ? `
-    <details class="foto-details">
-      <summary class="foto-summary">
-        Anggota Komponen (${k.komponenDetail.length})
-        <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-      </summary>
-      <div class="foto-body">
-        ${k.komponenDetail.map(a => `
-        <div class="row" style="border-bottom:1px solid var(--line); padding:8px 0">
-          <div class="k">${esc(a.nama)}<br><span style="color:var(--ink-400);font-size:11px">${esc(a.nik)}</span></div>
-          <div class="v" style="text-align:right">
-            <span class="badge" style="background:var(--navy-100);color:var(--navy-800)">${esc(a.jenis)}</span>
-            ${a.status ? `<br><span style="color:var(--ink-400);font-size:11px">${esc(a.status)}</span>` : ''}
-          </div>
-        </div>`).join('')}
+    ${!isNew ? `
+    <div class="field">
+      <label>Anggota Komponen ${k?.komponenDetail?.length ? `(${k.komponenDetail.length})` : ''}</label>
+      <div id="komponen-detail-list">
+        ${(k.komponenDetail || []).map(a => renderKomponenDetailRow(a)).join('')}
       </div>
-    </details>` : ''}
+      <div class="card" style="background:var(--navy-50); padding:10px; margin-top:8px">
+        <div class="field-row">
+          <div class="field"><label>Nama Anggota</label><input type="text" id="add-komp-nama" placeholder="Nama anggota"></div>
+          <div class="field"><label>NIK (opsional)</label><input type="text" id="add-komp-nik" placeholder="NIK"></div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Jenis Komponen</label>
+            <input type="text" list="komponen-jenis-suggest" id="add-komp-jenis" placeholder="Contoh: SEKOLAH">
+            <datalist id="komponen-jenis-suggest">
+              <option value="ANAK USIA DINI"><option value="SEKOLAH"><option value="LANSIA"><option value="DISABILITAS"><option value="HAMIL">
+            </datalist>
+          </div>
+          <div class="field"><label>Status (opsional)</label><input type="text" id="add-komp-status" placeholder="Status"></div>
+        </div>
+        <button class="btn secondary" type="button" id="btn-add-komponen" style="margin-top:2px">+ Tambah Anggota</button>
+      </div>
+    </div>` : `<div class="hint">Anggota komponen bisa ditambahkan setelah data ini disimpan (buka lagi lewat Data KPM).</div>`}
     <div class="field-row-compact">
       <div class="field w-narrow"><label>RT</label><input type="text" id="edit-rt" value="${esc(k?.rt || '')}" placeholder="RT"></div>
       <div class="field w-narrow"><label>RW</label><input type="text" id="edit-rw" value="${esc(k?.rw || '')}" placeholder="RW"></div>
@@ -779,6 +849,7 @@ function openKpmForm(k) {
       if (!nik) { toast('NIK Pengurus masih kosong'); return; }
       copyToClipboard(nik, 'NIK Pengurus disalin');
     });
+    bindKomponenDetailEvents(k);
     PHOTO_TYPES.forEach(pt => {
       const fileInput = document.getElementById(`file-photo-${pt.key}`);
       document.querySelector(`[data-photo-take="${pt.key}"]`).addEventListener('click', () => fileInput.click());
