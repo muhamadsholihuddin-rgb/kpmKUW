@@ -675,11 +675,10 @@ function openKpmForm(k) {
       </div>
     </div>
     <div class="field"><label>Alamat</label><input type="text" id="edit-alamat" value="${esc(k?.alamat || '')}" placeholder="Alamat"></div>
-    ${!isNew && (k?.nikPengurus || (k?.komponenDetail && k.komponenDetail.length)) ? `
     <div class="field">
       <label>NIK Pengurus</label>
       <input type="text" id="edit-nik-pengurus" value="${esc(k?.nikPengurus || '')}" placeholder="NIK Pengurus">
-    </div>` : ''}
+    </div>
     ${!isNew && k?.komponenDetail && k.komponenDetail.length ? `
     <details class="foto-details">
       <summary class="foto-summary">
@@ -796,6 +795,7 @@ function openKpmForm(k) {
         desa: newDesa,
         noKK: newNoKK,
         alamat: document.getElementById('edit-alamat').value.trim(),
+        nikPengurus: document.getElementById('edit-nik-pengurus').value.trim(),
         rt: document.getElementById('edit-rt').value.trim(),
         rw: document.getElementById('edit-rw').value.trim(),
         noRekening: document.getElementById('edit-noRekening').value.trim(),
