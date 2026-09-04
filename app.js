@@ -2147,8 +2147,19 @@ function extractRWIg(alamat) {
   return matches.length ? matches[matches.length - 1][1] : '';
 }
 function splitNamaPengurusIg(raw) {
-  const parts = String(raw || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  return { nama: parts[0] || '', noKK: parts.length > 1 ? parts[parts.length - 1].trim() : '' };
+  const str = String(raw || '').trim();
+  if (!str) return { nama: '', noKK: '' };
+  // Format lama: nama di baris pertama, No KK di baris terakhir (dipisah Enter dalam satu sel)
+  const parts = str.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    return { nama: parts[0], noKK: parts[parts.length - 1] };
+  }
+  // Format satu baris: "NAMA 16DIGITNOKK" dipisah spasi, contoh: "PANAJI 3506101906200001"
+  const m = str.match(/^(.*\S)\s+(\d{16})\s*$/);
+  if (m) {
+    return { nama: m[1].trim(), noKK: m[2] };
+  }
+  return { nama: str, noKK: '' };
 }
 
 function openImportGabunganModal() {
