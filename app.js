@@ -96,6 +96,7 @@ let absensiPdfMode = 'aplikasi'; // 'aplikasi' = isi status dari aplikasi, 'koso
 let verifKomponenSel = { desa: '', jenis: 'AUD', bulanMulai: new Date().getMonth() + 1, tahun: new Date().getFullYear() };
 let jurnalStore = loadJSON(LS_KEYS.jurnal, {}); // 'YYYY-MM-DD' -> [{id, rhk, jamMulai, jamSelesai, keterangan}]
 let jurnalTanggalAktif = todayISO();
+let jurnalSwipeDir = null; // 'left' (maju/hari berikutnya) | 'right' (mundur/hari sebelumnya) | null
 
 const RHK_LIST = [
   { id: '1', label: 'Penyaluran bansos KPM tepat sasaran & jumlah' },
@@ -457,38 +458,43 @@ function renderJurnalCard() {
   const entries = (jurnalStore[tgl] || []).slice().sort((a, b) => a.jamMulai.localeCompare(b.jamMulai));
   const totalMenit = entries.reduce((s, e) => s + Math.max(0, (jamToDecimal(e.jamSelesai) - jamToDecimal(e.jamMulai)) * 60), 0);
   const totalJamStr = (totalMenit / 60).toFixed(1).replace('.', ',');
+  const pageClass = jurnalSwipeDir === 'left' ? 'jurnal-page slide-left' : jurnalSwipeDir === 'right' ? 'jurnal-page slide-right' : 'jurnal-page';
+  jurnalSwipeDir = null;
 
   return `
-  <div class="section-title">📅 Jurnal Kegiatan Harian</div>
-  <div class="card">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px">
-      <button class="icon-btn-sm" id="jurnal-prev" title="Hari sebelumnya">
-        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
-      <div id="jurnal-date-label" style="text-align:center; font-weight:700; font-family:'Poppins',sans-serif; font-size:13.5px; cursor:pointer">
-        ${fmtTanggalHari(tgl)}${tgl === todayISO() ? ' <span style="color:var(--navy-800); font-weight:600; font-size:11px">(Hari ini)</span>' : ''}
+  <div class="jurnal-book-title">Jurnal Kegiatan Harian</div>
+  <div class="card" id="jurnal-swipe-area" style="overflow:hidden">
+    <div class="${pageClass}">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px">
+        <button class="icon-btn-sm" id="jurnal-prev" title="Hari sebelumnya">
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div id="jurnal-date-label" style="text-align:center; cursor:pointer">
+          <div style="font-size:10.5px; color:var(--ink-400); font-weight:600">
+            ${fmtTanggalHari(tgl)}${tgl === todayISO() ? ' · <span style="color:var(--navy-800); font-weight:700">Hari ini</span>' : ''}
+          </div>
+        </div>
+        <button class="icon-btn-sm" id="jurnal-next" title="Hari berikutnya">
+          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
       </div>
-      <button class="icon-btn-sm" id="jurnal-next" title="Hari berikutnya">
-        <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-      </button>
-    </div>
-    <input type="date" id="jurnal-date-picker" value="${tgl}" style="position:absolute; opacity:0; pointer-events:none; height:0">
-    <div class="hint" style="text-align:center; margin-bottom:10px">Total jam tercatat: <strong style="color:var(--navy-800)">${totalJamStr} jam</strong> (target 7,5 jam)</div>
+      <input type="date" id="jurnal-date-picker" value="${tgl}" style="position:absolute; opacity:0; pointer-events:none; height:0">
+      <div class="hint" style="text-align:center; margin-bottom:10px">Total jam: <strong style="color:var(--navy-800)">${totalJamStr} jam</strong> / 7,5 jam</div>
 
-    <div id="jurnal-list">
-      ${entries.length ? entries.map(e => `
-      <div class="row" data-jurnal-id="${esc(e.id)}" style="border-bottom:1px solid var(--line); padding:8px 0">
-        <div class="k">
-          <span style="font-weight:700; color:var(--navy-800)">${esc(e.jamMulai)}–${esc(e.jamSelesai)}</span><br>
-          <span style="font-size:12.5px">${esc(rhkLabel(e.rhk))}</span>
-          ${e.keterangan ? `<br><span style="font-size:11px; color:var(--ink-400)">${esc(e.keterangan)}</span>` : ''}
-        </div>
-        <div class="v">
-          <button class="icon-btn-sm" type="button" data-act="del-jurnal" data-id="${esc(e.id)}" title="Hapus">
-            <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
-          </button>
-        </div>
-      </div>`).join('') : `<div class="hint" style="text-align:center; padding:10px 0">Belum ada kegiatan tercatat di hari ini.</div>`}
+      <div id="jurnal-list">
+        ${entries.length ? entries.map(e => `
+        <div class="row" data-jurnal-id="${esc(e.id)}" style="border-bottom:1px solid var(--line); padding:9px 0; align-items:flex-start">
+          <div class="k">
+            <div style="font-weight:800; font-size:15px; font-family:'Poppins',sans-serif; color:var(--navy-800); line-height:1.3">${esc(rhkLabel(e.rhk))}</div>
+            <div style="font-size:11px; color:var(--ink-400); margin-top:3px">${esc(e.jamMulai)}–${esc(e.jamSelesai)}${e.keterangan ? ` · ${esc(e.keterangan)}` : ''}</div>
+          </div>
+          <div class="v">
+            <button class="icon-btn-sm" type="button" data-act="del-jurnal" data-id="${esc(e.id)}" title="Hapus">
+              <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+            </button>
+          </div>
+        </div>`).join('') : `<div class="hint" style="text-align:center; padding:10px 0">Belum ada kegiatan tercatat di hari ini.</div>`}
+      </div>
     </div>
 
     <div class="card" style="background:var(--navy-50); padding:10px; margin-top:10px">
@@ -510,11 +516,29 @@ function renderJurnalCard() {
 
 function bindJurnalCard() {
   document.getElementById('jurnal-prev').addEventListener('click', () => {
+    jurnalSwipeDir = 'right';
     jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, -1);
     render();
   });
   document.getElementById('jurnal-next').addEventListener('click', () => {
+    jurnalSwipeDir = 'left';
     jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, 1);
+    render();
+  });
+  const swipeArea = document.getElementById('jurnal-swipe-area');
+  let touchStartX = null, touchStartY = null;
+  swipeArea.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  swipeArea.addEventListener('touchend', (e) => {
+    if (touchStartX === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    touchStartX = null;
+    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) { jurnalSwipeDir = 'left'; jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, 1); }
+    else { jurnalSwipeDir = 'right'; jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, -1); }
     render();
   });
   const picker = document.getElementById('jurnal-date-picker');
@@ -583,7 +607,6 @@ function renderBeranda() {
   ];
 
   return `
-  ${jurnalHtml}
   <div class="stat-grid">
     <div class="stat-card">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
@@ -591,22 +614,21 @@ function renderBeranda() {
       <div class="stat-label">Total KPM Dampingan</div>
     </div>
     <div class="stat-card gold">
-      <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      <div class="stat-num">${aktif}</div>
-      <div class="stat-label">KPM Aktif</div>
+      <svg viewBox="0 0 24 24"><path d="M12 21s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+      <div class="stat-num">${desaList.length}</div>
+      <div class="stat-label">Sebaran per Desa</div>
     </div>
   </div>
+  ${jurnalHtml}
 
-  <div class="section-title">Sebaran per Desa</div>
-  <div class="card">
-    <div class="desa-list">
+  <div class="section-title">Rincian per Desa</div>
+  <div class="card" style="padding:10px 12px">
+    <div style="display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px">
       ${desaList.map(d => {
         const n = kpmData.filter(k => k.desa === d).length;
-        const pct = Math.round((n / maxPerDesa) * 100);
-        return `<div class="desa-row">
-          <div class="chip-num">${n}</div>
-          <div class="name">${esc(d)}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        return `<div style="flex-shrink:0; background:var(--navy-50); border-radius:10px; padding:6px 12px; text-align:center; min-width:60px">
+          <div style="font-family:'Poppins',sans-serif; font-weight:800; font-size:14px; color:var(--navy-800)">${n}</div>
+          <div style="font-size:9.5px; color:var(--ink-600); font-weight:600; white-space:nowrap">${esc(d)}</div>
         </div>`;
       }).join('')}
     </div>
@@ -1529,18 +1551,70 @@ function buildVerifikasiKomponenDoc(sel) {
   });
 
   const finalY = doc.lastAutoTable.finalY + 12;
-  const sigX = pageW - marginX - 60;
+  const sigXKanan = pageW - marginX - 55;
+  const sigXKiri = marginX + 15;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text('Pendamping Sosial', sigX, finalY);
-  doc.text('_______________________', sigX, finalY + 24);
+
+  // Kolom kiri: Mengetahui (Bidan / Kepala Puskesmas — nama diisi tangan)
+  doc.text('Mengetahui,', sigXKiri, finalY);
+  doc.text('_______________________', sigXKiri, finalY + 24);
+  doc.text('(...........................)', sigXKiri, finalY + 29);
+
+  // Kolom kanan: Pendamping Sosial
+  doc.text('Pendamping Sosial', sigXKanan, finalY);
+  doc.text('_______________________', sigXKanan, finalY + 24);
   doc.setFont('helvetica', 'bold');
-  doc.text(settings.namaPendamping || '(...........................)', sigX, finalY + 29);
+  doc.text(settings.namaPendamping || '(...........................)', sigXKanan, finalY + 29);
   doc.setFont('helvetica', 'normal');
-  if (settings.nip) doc.text(`NIP. ${settings.nip}`, sigX, finalY + 34);
+  if (settings.nip) doc.text(`NIP. ${settings.nip}`, sigXKanan, finalY + 34);
 
   const fname = `Verifikasi_${cfg.label}_${desaFilter || 'SemuaDesa'}_${sel.tahun}.pdf`;
   return { doc, fname, jumlah: rows.length };
+}
+
+function buildVerifikasiKomponenRows(sel) {
+  const cfg = JENIS_KOMPONEN_EXPORT[sel.jenis];
+  const desaFilter = sel.desa;
+  const kpmList = kpmData.filter(k => (!desaFilter || k.desa === desaFilter) && Array.isArray(k.komponenDetail) && k.komponenDetail.length);
+  const rows = [];
+  kpmList.forEach(k => {
+    k.komponenDetail.forEach(a => {
+      const jenisUp = String(a.jenis || '').toUpperCase();
+      if (cfg.matchJenis.some(m => jenisUp.includes(m))) {
+        rows.push({ pengurus: k.namaPengurus || k.nama, nama: a.nama, noKK: k.noKK, nik: a.nik || '-', alamat: k.alamat || '-', rt: k.rt || '-', rw: k.rw || '-' });
+      }
+    });
+  });
+  rows.sort((a, b) => a.pengurus.localeCompare(b.pengurus));
+  return { cfg, rows };
+}
+
+function exportVerifikasiKomponenExcel() {
+  const { cfg, rows } = buildVerifikasiKomponenRows(verifKomponenSel);
+  if (!rows.length) { toast('Tidak ada data anggota komponen untuk kombinasi ini'); return; }
+  const bulanIdx = [0, 1, 2].map(i => (verifKomponenSel.bulanMulai - 1 + i) % 12);
+  const bulanLabels = bulanIdx.map(i => NAMA_BULAN[i]);
+  const namaLabel = cfg.label.charAt(0) + cfg.label.slice(1).toLowerCase();
+  const excelRows = rows.map((r, i) => ({
+    'No': i + 1,
+    'Nama Pengurus': r.pengurus,
+    [`Nama ${namaLabel}`]: r.nama,
+    'No. KK': r.noKK,
+    [`NIK ${namaLabel}`]: r.nik,
+    'Alamat': r.alamat,
+    'RT': r.rt,
+    'RW': r.rw,
+    [bulanLabels[0]]: '',
+    [bulanLabels[1]]: '',
+    [bulanLabels[2]]: ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(excelRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `Verifikasi ${namaLabel}`);
+  const fname = `Verifikasi_${cfg.label}_${verifKomponenSel.desa || 'SemuaDesa'}_${verifKomponenSel.tahun}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  toast(`Excel diunduh — ${rows.length} anggota`);
 }
 
 function exportVerifikasiKomponenPDF() {
@@ -1655,6 +1729,7 @@ function renderPengaturanView() {
       <div class="field"><label>Tahun</label><input type="number" id="vk-tahun" value="${verifKomponenSel.tahun}"></div>
     </div>
     <button class="btn gold" id="btn-export-verifikasi">Export PDF</button>
+    <button class="btn secondary" id="btn-export-verifikasi-excel" style="margin-top:8px">Export Excel (untuk koreksi manual)</button>
   </div>
 
   <div class="section-title">👨‍👩‍👧 Import Detail Komponen</div>
@@ -1726,6 +1801,7 @@ function bindPengaturanView() {
   document.getElementById('vk-bulan').addEventListener('change', (e) => { verifKomponenSel.bulanMulai = Number(e.target.value); });
   document.getElementById('vk-tahun').addEventListener('change', (e) => { verifKomponenSel.tahun = Number(e.target.value) || new Date().getFullYear(); });
   document.getElementById('btn-export-verifikasi').addEventListener('click', exportVerifikasiKomponenPDF);
+  document.getElementById('btn-export-verifikasi-excel').addEventListener('click', exportVerifikasiKomponenExcel);
   document.getElementById('btn-export').addEventListener('click', exportPemutakhiran);
   document.getElementById('btn-reset').addEventListener('click', openResetConfirm);
   document.getElementById('btn-upload-ttd').addEventListener('click', () => document.getElementById('file-ttd').click());
@@ -2408,7 +2484,8 @@ function exportPemutakhiran() {
     'TINDAK LANJUT': k.tindakLanjutImport,
     'Status Aktif': k.statusAktif === false ? 'Nonaktif' : 'Aktif',
     'Status KPM': STATUS_LABEL[k.statusBaku] || '',
-    'Catatan': k.catatanPengaduan || ''
+    'Catatan': k.catatanPengaduan || '',
+    'Anggota Komponen': (k.komponenDetail || []).map(a => `${a.nama} (${a.jenis || '-'})`).join('; ')
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();

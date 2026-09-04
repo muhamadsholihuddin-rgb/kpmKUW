@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kpm-dampingan-v5';
+const CACHE_NAME = 'kpm-dampingan-v6';
 const ASSETS = [
   './index.html',
   './app.js',
