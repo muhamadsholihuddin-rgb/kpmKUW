@@ -6,8 +6,7 @@
 const LS_KEYS = {
   data: 'kpm_data_v1',
   settings: 'kpm_settings_v1',
-  absensi: 'kpm_absensi_v1',
-  jurnal: 'kpm_jurnal_v1'
+  absensi: 'kpm_absensi_v1'
 };
 
 const STATUS_OPTIONS = [
@@ -77,6 +76,73 @@ const MODUL_DATA = {
   }
 };
 
+const RINGKASAN_MATERI = [
+  {
+    judul: 'Bimbingan Mental dan Spiritual',
+    poin: [
+      'Penguatan nilai agama dan moral.',
+      'Membangun keluarga harmonis.',
+      'Tanggung jawab orang tua.',
+      'Komunikasi dan penyelesaian konflik dalam keluarga.',
+      'Membiasakan disiplin, jujur, bersyukur, dan saling menghargai.'
+    ]
+  },
+  {
+    judul: 'Pengelolaan Keuangan dan Perencanaan Usaha',
+    poin: [
+      'Mengatur pendapatan dan pengeluaran keluarga.',
+      'Membedakan kebutuhan dan keinginan.',
+      'Membiasakan menabung.',
+      'Menghindari utang konsumtif.',
+      'Merencanakan dan mengembangkan usaha keluarga.'
+    ]
+  },
+  {
+    judul: 'Kesehatan dan Gizi',
+    poin: [
+      'Menjaga kesehatan ibu dan anak.',
+      'Pemenuhan gizi keluarga.',
+      'Pencegahan stunting.',
+      'PHBS dan sanitasi.',
+      'Pemanfaatan fasilitas kesehatan.'
+    ]
+  },
+  {
+    judul: 'Kesejahteraan Sosial',
+    poin: [
+      'Pemenuhan hak lansia dan penyandang disabilitas.',
+      'Kemandirian dan perawatan anggota keluarga yang membutuhkan.',
+      'Akses terhadap layanan dan perlindungan sosial.',
+      'Mencegah penelantaran dan diskriminasi.'
+    ]
+  },
+  {
+    judul: 'Fasilitasi, Mediasi, Edukasi, Motivasi dan Advokasi',
+    poin: [
+      'Membantu KPM mengakses layanan kesehatan dan pendidikan.',
+      'Membantu penyelesaian masalah administrasi.',
+      'Mediasi dengan pihak terkait.',
+      'Memberikan motivasi agar KPM mampu menyelesaikan masalah secara mandiri.',
+      'Mengarahkan KPM kepada layanan/program yang sesuai.'
+    ]
+  },
+  {
+    judul: 'P2K2 Adaptif',
+    poin: [
+      'Materi disesuaikan dengan kondisi dan masalah aktual KPM.',
+      'Dapat membahas isu sosial, ekonomi, kesehatan, pendidikan, keluarga, maupun kebencanaan.',
+      'Fokus pada masalah nyata yang sedang dihadapi kelompok.'
+    ]
+  },
+  {
+    judul: 'Materi Tambahan / Isu Relevan',
+    poin: [
+      'Materi sesuai kebutuhan masyarakat dan kondisi terkini.',
+      'Dapat berupa edukasi kebijakan pemerintah, perlindungan sosial, pemberdayaan ekonomi, pencegahan kekerasan, literasi digital, dan isu sosial lainnya.'
+    ]
+  }
+];
+
 /* ---------------- State ---------------- */
 let kpmData = loadJSON(LS_KEYS.data, []);
 let settings = loadJSON(LS_KEYS.settings, { namaPendamping: '', nip: '', tandaTanganDataUrl: '', kelompokByDesa: {}, kecamatan: 'Gurah', kabupaten: 'Kediri', provinsi: 'Jawa Timur' });
@@ -85,6 +151,7 @@ if (settings.kecamatan === undefined) settings.kecamatan = 'Gurah';
 if (settings.kabupaten === undefined) settings.kabupaten = 'Kediri';
 if (settings.provinsi === undefined) settings.provinsi = 'Jawa Timur';
 let absensiStore = loadJSON(LS_KEYS.absensi, {}); // key -> [{noKK,nama,status}]
+let materiExpanded = {}; // index -> bool (buka/tutup ringkasan materi)
 
 let currentView = 'beranda';
 let berandaDesaFilter = '';
@@ -94,9 +161,6 @@ let statusSearch = '';
 let absensiSel = { modul: '1', sesi: '1', desa: '', kelompok: '', tanggal: todayISO() };
 let absensiPdfMode = 'aplikasi'; // 'aplikasi' = isi status dari aplikasi, 'kosong' = kosongkan untuk tanda tangan manual
 let verifKomponenSel = { desa: '', jenis: 'AUD', bulanMulai: new Date().getMonth() + 1, tahun: new Date().getFullYear() };
-let jurnalStore = loadJSON(LS_KEYS.jurnal, {}); // 'YYYY-MM-DD' -> [{id, rhk, jamMulai, jamSelesai, keterangan}]
-let jurnalTanggalAktif = todayISO();
-let jurnalSwipeDir = null; // 'left' (maju/hari berikutnya) | 'right' (mundur/hari sebelumnya) | null
 
 const RHK_LIST = [
   { id: '1', label: 'Penyaluran bansos KPM tepat sasaran & jumlah' },
@@ -197,7 +261,6 @@ function loadJSON(key, fallback) {
 function saveData() { localStorage.setItem(LS_KEYS.data, JSON.stringify(kpmData)); }
 function saveSettings() { localStorage.setItem(LS_KEYS.settings, JSON.stringify(settings)); }
 function saveAbsensi() { localStorage.setItem(LS_KEYS.absensi, JSON.stringify(absensiStore)); }
-function saveJurnal() { localStorage.setItem(LS_KEYS.jurnal, JSON.stringify(jurnalStore)); }
 
 /* ============================================================
    FOTO KPM — disimpan di IndexedDB (bukan localStorage) karena
@@ -451,133 +514,148 @@ function render() {
 }
 
 /* ============================================================
-   JURNAL KEGIATAN HARIAN
+   RINGKASAN MATERI P2K2
    ============================================================ */
-function renderJurnalCard() {
-  const tgl = jurnalTanggalAktif;
-  const entries = (jurnalStore[tgl] || []).slice().sort((a, b) => a.jamMulai.localeCompare(b.jamMulai));
-  const totalMenit = entries.reduce((s, e) => s + Math.max(0, (jamToDecimal(e.jamSelesai) - jamToDecimal(e.jamMulai)) * 60), 0);
-  const totalJamStr = (totalMenit / 60).toFixed(1).replace('.', ',');
-  const pageClass = jurnalSwipeDir === 'left' ? 'jurnal-page slide-left' : jurnalSwipeDir === 'right' ? 'jurnal-page slide-right' : 'jurnal-page';
-  jurnalSwipeDir = null;
-
+function renderMateriCard() {
   return `
-  <div class="jurnal-book-title">Jurnal Kegiatan Harian</div>
-  <div class="card" id="jurnal-swipe-area" style="overflow:hidden">
-    <div class="${pageClass}">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px">
-        <button class="icon-btn-sm" id="jurnal-prev" title="Hari sebelumnya">
-          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <div id="jurnal-date-label" style="text-align:center; cursor:pointer">
-          <div style="font-size:10.5px; color:var(--ink-400); font-weight:600">
-            ${fmtTanggalHari(tgl)}${tgl === todayISO() ? ' · <span style="color:var(--navy-800); font-weight:700">Hari ini</span>' : ''}
-          </div>
-        </div>
-        <button class="icon-btn-sm" id="jurnal-next" title="Hari berikutnya">
-          <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-      </div>
-      <input type="date" id="jurnal-date-picker" value="${tgl}" style="position:absolute; opacity:0; pointer-events:none; height:0">
-      <div class="hint" style="text-align:center; margin-bottom:10px">Total jam: <strong style="color:var(--navy-800)">${totalJamStr} jam</strong> / 7,5 jam</div>
-
-      <div id="jurnal-list">
-        ${entries.length ? entries.map(e => `
-        <div class="row" data-jurnal-id="${esc(e.id)}" style="border-bottom:1px solid var(--line); padding:9px 0; align-items:flex-start">
+  <div class="section-title" style="display:flex; align-items:center; justify-content:space-between">
+    <span>Ringkasan Materi P2K2</span>
+    <div style="display:flex; gap:6px">
+      <button class="icon-btn-sm" type="button" id="export-materi-pdf" title="Export PDF">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg>
+      </button>
+      <button class="icon-btn-sm" type="button" id="share-materi-pdf" title="Bagikan PDF">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="card" style="padding:6px 12px">
+    ${RINGKASAN_MATERI.map((m, i) => {
+      const open = !!materiExpanded[i];
+      return `
+      <div style="border-bottom:${i < RINGKASAN_MATERI.length - 1 ? '1px solid var(--line)' : 'none'}; padding:9px 0">
+        <div class="row" data-act="toggle-materi" data-idx="${i}" style="cursor:pointer; align-items:center">
           <div class="k">
-            <div style="font-weight:800; font-size:15px; font-family:'Poppins',sans-serif; color:var(--navy-800); line-height:1.3">${esc(rhkLabel(e.rhk))}</div>
-            <div style="font-size:11px; color:var(--ink-400); margin-top:3px">${esc(e.jamMulai)}–${esc(e.jamSelesai)}${e.keterangan ? ` · ${esc(e.keterangan)}` : ''}</div>
+            <div style="font-weight:800; font-size:14px; font-family:'Poppins',sans-serif; color:var(--navy-800); line-height:1.35">${i + 1}. ${esc(m.judul)}</div>
           </div>
           <div class="v">
-            <button class="icon-btn-sm" type="button" data-act="del-jurnal" data-id="${esc(e.id)}" title="Hapus">
-              <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
-            </button>
+            <svg viewBox="0 0 24 24" width="18" height="18" style="stroke:var(--ink-400); fill:none; stroke-width:2; transform:rotate(${open ? '180deg' : '0deg'}); transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg>
           </div>
-        </div>`).join('') : `<div class="hint" style="text-align:center; padding:10px 0">Belum ada kegiatan tercatat di hari ini.</div>`}
-      </div>
-    </div>
-
-    <div class="card" style="background:var(--navy-50); padding:10px; margin-top:10px">
-      <div class="field">
-        <label>RHK</label>
-        <select id="jurnal-rhk">
-          ${RHK_LIST.map(r => `<option value="${r.id}">RHK ${r.id} — ${esc(r.label)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Jam Mulai</label><input type="time" id="jurnal-jam-mulai" value="07:30"></div>
-        <div class="field"><label>Jam Selesai</label><input type="time" id="jurnal-jam-selesai" value="16:00"></div>
-      </div>
-      <div class="field"><label>Keterangan (opsional)</label><input type="text" id="jurnal-keterangan" placeholder="Contoh: P2K2 Kelompok Templek"></div>
-      <button class="btn secondary" type="button" id="btn-jurnal-add" style="margin-top:2px">+ Tambah Kegiatan</button>
-    </div>
+        </div>
+        ${open ? `
+        <ul style="margin:8px 0 2px; padding-left:20px">
+          ${m.poin.map(p => `<li style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin-bottom:3px">${esc(p)}</li>`).join('')}
+        </ul>` : ''}
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
-function bindJurnalCard() {
-  document.getElementById('jurnal-prev').addEventListener('click', () => {
-    jurnalSwipeDir = 'right';
-    jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, -1);
-    render();
-  });
-  document.getElementById('jurnal-next').addEventListener('click', () => {
-    jurnalSwipeDir = 'left';
-    jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, 1);
-    render();
-  });
-  const swipeArea = document.getElementById('jurnal-swipe-area');
-  let touchStartX = null, touchStartY = null;
-  swipeArea.addEventListener('touchstart', (e) => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  swipeArea.addEventListener('touchend', (e) => {
-    if (touchStartX === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    touchStartX = null;
-    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
-    if (dx < 0) { jurnalSwipeDir = 'left'; jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, 1); }
-    else { jurnalSwipeDir = 'right'; jurnalTanggalAktif = shiftISODate(jurnalTanggalAktif, -1); }
-    render();
-  });
-  const picker = document.getElementById('jurnal-date-picker');
-  document.getElementById('jurnal-date-label').addEventListener('click', () => {
-    if (picker.showPicker) picker.showPicker(); else picker.click();
-  });
-  picker.addEventListener('change', () => {
-    if (picker.value) { jurnalTanggalAktif = picker.value; render(); }
-  });
-  document.querySelectorAll('[data-act="del-jurnal"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      jurnalStore[jurnalTanggalAktif] = (jurnalStore[jurnalTanggalAktif] || []).filter(e => e.id !== id);
-      saveJurnal();
+function bindMateriCard() {
+  document.querySelectorAll('[data-act="toggle-materi"]').forEach(row => {
+    row.addEventListener('click', () => {
+      const idx = row.dataset.idx;
+      materiExpanded[idx] = !materiExpanded[idx];
       render();
     });
   });
-  document.getElementById('btn-jurnal-add').addEventListener('click', () => {
-    const rhk = document.getElementById('jurnal-rhk').value;
-    const jamMulai = document.getElementById('jurnal-jam-mulai').value;
-    const jamSelesai = document.getElementById('jurnal-jam-selesai').value;
-    const keterangan = document.getElementById('jurnal-keterangan').value.trim();
-    if (!jamMulai || !jamSelesai) { toast('Isi jam mulai & jam selesai'); return; }
-    if (jamToDecimal(jamSelesai) <= jamToDecimal(jamMulai)) { toast('Jam selesai harus setelah jam mulai'); return; }
-    if (!jurnalStore[jurnalTanggalAktif]) jurnalStore[jurnalTanggalAktif] = [];
-    jurnalStore[jurnalTanggalAktif].push({ id: uid(), rhk, jamMulai, jamSelesai, keterangan });
-    saveJurnal();
-    render();
-    toast('Kegiatan ditambahkan');
+  document.getElementById('export-materi-pdf')?.addEventListener('click', exportRingkasanMateriPDF);
+  document.getElementById('share-materi-pdf')?.addEventListener('click', shareRingkasanMateriPDF);
+}
+
+function buildRingkasanMateriDoc() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 16;
+  const marginBottom = 18;
+
+  const logoH = 13;
+  try { if (typeof LOGO_KEMENSOS !== 'undefined') { const w = logoH * LOGO_KEMENSOS_RATIO; doc.addImage(LOGO_KEMENSOS, 'JPEG', marginX, 8, w, logoH); } } catch (e) {}
+  try { if (typeof LOGO_PKH !== 'undefined') { const w = logoH * LOGO_PKH_RATIO; doc.addImage(LOGO_PKH, 'JPEG', pageW - marginX - w, 8, w, logoH); } } catch (e) {}
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('RINGKASAN MATERI P2K2', pageW / 2, 14, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const lokasi = [settings.kecamatan, settings.kabupaten, settings.provinsi].filter(Boolean).join(', ');
+  if (lokasi) doc.text(lokasi, pageW / 2, 20, { align: 'center' });
+
+  const headerBottomY = Math.max(24, 8 + logoH + 3);
+  doc.setDrawColor(11, 93, 82);
+  doc.setLineWidth(0.5);
+  doc.line(marginX, headerBottomY, pageW - marginX, headerBottomY);
+
+  let y = headerBottomY + 9;
+  const lineH = 5;
+  const bulletIndent = 6;
+  const textW = pageW - marginX * 2 - bulletIndent;
+
+  const ensureSpace = (needed) => {
+    if (y + needed > pageH - marginBottom) {
+      doc.addPage();
+      y = 18;
+    }
+  };
+
+  RINGKASAN_MATERI.forEach((m, i) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11.5);
+    const judulLines = doc.splitTextToSize(`${i + 1}. ${m.judul}`, pageW - marginX * 2);
+    ensureSpace(judulLines.length * lineH + 3);
+    doc.setTextColor(11, 93, 82);
+    doc.text(judulLines, marginX, y);
+    doc.setTextColor(20, 20, 20);
+    y += judulLines.length * lineH + 1.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    m.poin.forEach(p => {
+      const poinLines = doc.splitTextToSize(p, textW);
+      ensureSpace(poinLines.length * lineH);
+      doc.text('•', marginX + 1, y);
+      doc.text(poinLines, marginX + bulletIndent, y);
+      y += poinLines.length * lineH;
+    });
+    y += 4;
   });
+
+  const fname = `Ringkasan_Materi_P2K2.pdf`;
+  return { doc, fname };
+}
+
+function exportRingkasanMateriPDF() {
+  const { doc, fname } = buildRingkasanMateriDoc();
+  doc.save(fname);
+  toast('PDF ringkasan materi diunduh');
+}
+
+async function shareRingkasanMateriPDF() {
+  const { doc, fname } = buildRingkasanMateriDoc();
+  const blob = doc.output('blob');
+  const file = new File([blob], fname, { type: 'application/pdf' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: fname, text: 'Ringkasan Materi P2K2' });
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('Gagal membuka menu share');
+    }
+  } else {
+    doc.save(fname);
+    toast('Share tidak didukung di perangkat ini — PDF diunduh');
+  }
 }
 
 /* ============================================================
    BERANDA (DASHBOARD)
    ============================================================ */
 function renderBeranda() {
-  const jurnalHtml = renderJurnalCard();
+  const materiHtml = renderMateriCard();
   if (kpmData.length === 0) {
-    return jurnalHtml + `
+    return materiHtml + `
     <div class="card empty-state">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
       <p>Belum ada data KPM.<br>Import data Excel lewat menu Pengaturan.</p>
@@ -607,6 +685,8 @@ function renderBeranda() {
   ];
 
   return `
+  ${materiHtml}
+
   <div class="stat-grid">
     <div class="stat-card">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
@@ -619,7 +699,6 @@ function renderBeranda() {
       <div class="stat-label">Sebaran per Desa</div>
     </div>
   </div>
-  ${jurnalHtml}
 
   <div class="section-title">Rincian per Desa</div>
   <div class="card" style="padding:10px 12px">
@@ -663,7 +742,7 @@ function renderBeranda() {
 }
 
 function bindBerandaView() {
-  bindJurnalCard();
+  bindMateriCard();
   document.getElementById('beranda-desa-filter')?.addEventListener('change', e => {
     berandaDesaFilter = e.target.value;
     render();
