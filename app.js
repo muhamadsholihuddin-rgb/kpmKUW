@@ -1409,13 +1409,13 @@ function buildAbsensiDoc() {
   try {
     if (typeof LOGO_KEMENSOS !== 'undefined') {
       const w = logoH * LOGO_KEMENSOS_RATIO;
-      doc.addImage(LOGO_KEMENSOS, 'PNG', marginX, 8, w, logoH);
+      doc.addImage(LOGO_KEMENSOS, 'JPEG', marginX, 8, w, logoH);
     }
   } catch (e) {}
   try {
     if (typeof LOGO_PKH !== 'undefined') {
       const w = logoH * LOGO_PKH_RATIO;
-      doc.addImage(LOGO_PKH, 'PNG', pageW - marginX - w, 8, w, logoH);
+      doc.addImage(LOGO_PKH, 'JPEG', pageW - marginX - w, 8, w, logoH);
     }
   } catch (e) {}
 
@@ -1510,8 +1510,8 @@ function buildVerifikasiKomponenDoc(sel) {
   const marginX = 12;
 
   const logoH = 15;
-  try { if (typeof LOGO_PKH !== 'undefined') { const w = logoH * LOGO_PKH_RATIO; doc.addImage(LOGO_PKH, 'PNG', marginX, 8, w, logoH); } } catch (e) {}
-  try { if (typeof LOGO_KEMENSOS !== 'undefined') { const w = logoH * LOGO_KEMENSOS_RATIO; doc.addImage(LOGO_KEMENSOS, 'PNG', pageW - marginX - w, 8, w, logoH); } } catch (e) {}
+  try { if (typeof LOGO_PKH !== 'undefined') { const w = logoH * LOGO_PKH_RATIO; doc.addImage(LOGO_PKH, 'JPEG', marginX, 8, w, logoH); } } catch (e) {}
+  try { if (typeof LOGO_KEMENSOS !== 'undefined') { const w = logoH * LOGO_KEMENSOS_RATIO; doc.addImage(LOGO_KEMENSOS, 'JPEG', pageW - marginX - w, 8, w, logoH); } } catch (e) {}
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
