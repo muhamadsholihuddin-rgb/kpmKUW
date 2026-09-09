@@ -79,69 +79,124 @@ const MODUL_DATA = {
 const RINGKASAN_MATERI = [
   {
     judul: 'Bimbingan Mental dan Spiritual',
+    tujuan: 'Menguatkan nilai agama, moral, dan keharmonisan keluarga KPM sebagai fondasi kehidupan berkeluarga.',
     poin: [
       'Penguatan nilai agama dan moral.',
       'Membangun keluarga harmonis.',
       'Tanggung jawab orang tua.',
       'Komunikasi dan penyelesaian konflik dalam keluarga.',
       'Membiasakan disiplin, jujur, bersyukur, dan saling menghargai.'
+    ],
+    kegiatan: [
+      'Pembukaan dengan doa bersama & renungan singkat sesuai keyakinan masing-masing peserta.',
+      'Diskusi kelompok kecil: berbagi pengalaman menjaga keharmonisan keluarga sehari-hari.',
+      'Roleplay sederhana penyelesaian konflik keluarga (mis. beda pendapat soal pengeluaran rumah tangga).',
+      'Curah pendapat: nilai-nilai apa yang ingin diwariskan kepada anak.',
+      'Penutup: menuliskan satu komitmen pribadi kebiasaan baik yang akan diterapkan minggu ini.'
     ]
   },
   {
     judul: 'Pengelolaan Keuangan dan Perencanaan Usaha',
+    tujuan: 'Meningkatkan kemampuan KPM mengelola keuangan rumah tangga dan merintis/mengembangkan usaha keluarga.',
     poin: [
       'Mengatur pendapatan dan pengeluaran keluarga.',
       'Membedakan kebutuhan dan keinginan.',
       'Membiasakan menabung.',
       'Menghindari utang konsumtif.',
       'Merencanakan dan mengembangkan usaha keluarga.'
+    ],
+    kegiatan: [
+      'Simulasi mencatat pemasukan dan pengeluaran seminggu terakhir di buku kas sederhana.',
+      'Permainan "Kebutuhan vs Keinginan": peserta menyortir kartu contoh barang ke dua kelompok.',
+      'Diskusi kelompok: pengalaman berutang dan cara-cara menghindarinya.',
+      'Latihan menyusun target tabungan mingguan yang realistis.',
+      'Sharing ide usaha rumahan sesuai potensi dan sumber daya di desa masing-masing.'
     ]
   },
   {
     judul: 'Kesehatan dan Gizi',
+    tujuan: 'Meningkatkan pengetahuan dan praktik keluarga dalam menjaga kesehatan ibu, anak, serta pemenuhan gizi keluarga.',
     poin: [
       'Menjaga kesehatan ibu dan anak.',
       'Pemenuhan gizi keluarga.',
       'Pencegahan stunting.',
       'PHBS dan sanitasi.',
       'Pemanfaatan fasilitas kesehatan.'
+    ],
+    kegiatan: [
+      'Penyuluhan singkat "Isi Piringku" dan demo praktik menyusun menu bergizi dengan bahan lokal murah.',
+      'Diskusi kelompok tanda-tanda dan cara pencegahan stunting sejak 1.000 Hari Pertama Kehidupan.',
+      'Simulasi praktik cuci tangan pakai sabun yang benar bersama peserta.',
+      'Sharing pengalaman memanfaatkan Posyandu/Puskesmas dan hambatan yang dihadapi.',
+      'Ajakan komitmen kunjungan rutin ke fasilitas kesehatan terdekat.'
     ]
   },
   {
     judul: 'Kesejahteraan Sosial',
+    tujuan: 'Memastikan pemenuhan hak dan perlindungan sosial bagi seluruh anggota keluarga, termasuk lansia dan penyandang disabilitas.',
     poin: [
       'Pemenuhan hak lansia dan penyandang disabilitas.',
       'Kemandirian dan perawatan anggota keluarga yang membutuhkan.',
       'Akses terhadap layanan dan perlindungan sosial.',
       'Mencegah penelantaran dan diskriminasi.'
+    ],
+    kegiatan: [
+      'Diskusi kasus: bagaimana keluarga merawat lansia/disabilitas di rumah secara mandiri.',
+      'Curah pendapat mengenai hak-hak dasar anggota keluarga yang perlu dipenuhi.',
+      'Roleplay tata cara melaporkan dugaan penelantaran/diskriminasi kepada pihak berwenang.',
+      'Sharing informasi layanan dan perlindungan sosial yang tersedia di desa/kecamatan.',
+      'Latihan mengisi formulir pengajuan bantuan/layanan sosial secara sederhana.'
     ]
   },
   {
     judul: 'Fasilitasi, Mediasi, Edukasi, Motivasi dan Advokasi',
+    tujuan: 'Membekali pendamping dan KPM dalam mengakses layanan, menyelesaikan masalah administrasi, serta membangun kemandirian.',
     poin: [
       'Membantu KPM mengakses layanan kesehatan dan pendidikan.',
       'Membantu penyelesaian masalah administrasi.',
       'Mediasi dengan pihak terkait.',
       'Memberikan motivasi agar KPM mampu menyelesaikan masalah secara mandiri.',
       'Mengarahkan KPM kepada layanan/program yang sesuai.'
+    ],
+    kegiatan: [
+      'Simulasi pendampingan KPM mengurus dokumen (KTP, KIS, akta, dsb).',
+      'Roleplay mediasi antara KPM dengan pihak layanan (sekolah/puskesmas/desa).',
+      'Diskusi kelompok mengenai hambatan KPM mengakses layanan dan solusinya.',
+      'Sesi motivasi: berbagi kisah sukses KPM lain yang berhasil mandiri.',
+      'Latihan menyusun rencana tindak lanjut (RTL) individu bersama pendamping.'
     ]
   },
   {
     judul: 'P2K2 Adaptif',
+    tujuan: 'Menyesuaikan materi P2K2 dengan kondisi dan permasalahan aktual yang sedang dihadapi kelompok KPM.',
     poin: [
       'Materi disesuaikan dengan kondisi dan masalah aktual KPM.',
       'Dapat membahas isu sosial, ekonomi, kesehatan, pendidikan, keluarga, maupun kebencanaan.',
       'Fokus pada masalah nyata yang sedang dihadapi kelompok.'
+    ],
+    kegiatan: [
+      'Curah pendapat mengenai masalah aktual yang sedang dihadapi kelompok saat ini.',
+      'Diskusi kelompok mencari solusi bersama atas isu terkini di desa/kelompok.',
+      'Studi kasus kontekstual sesuai kondisi wilayah (mis. musim tanam, bencana, wabah).',
+      'Refleksi kelompok dan penyusunan rencana aksi kolektif.'
     ]
   },
   {
     judul: 'Materi Tambahan / Isu Relevan',
+    tujuan: 'Memberikan edukasi tambahan sesuai kebutuhan masyarakat dan isu terkini di luar modul reguler.',
     poin: [
       'Materi sesuai kebutuhan masyarakat dan kondisi terkini.',
       'Dapat berupa edukasi kebijakan pemerintah, perlindungan sosial, pemberdayaan ekonomi, pencegahan kekerasan, literasi digital, dan isu sosial lainnya.'
+    ],
+    kegiatan: [
+      'Penyuluhan tematik sesuai isu terkini (literasi digital, pencegahan kekerasan, dsb).',
+      'Nonton bersama video edukasi singkat dilanjutkan diskusi.',
+      'Simulasi/praktik langsung (mis. keamanan digital, cara mengenali hoaks).',
+      'Sesi tanya jawab dengan narasumber/OPD terkait bila memungkinkan.'
     ]
   }
 ];
+
 
 /* ---------------- State ---------------- */
 let kpmData = loadJSON(LS_KEYS.data, []);
@@ -151,7 +206,8 @@ if (settings.kecamatan === undefined) settings.kecamatan = 'Gurah';
 if (settings.kabupaten === undefined) settings.kabupaten = 'Kediri';
 if (settings.provinsi === undefined) settings.provinsi = 'Jawa Timur';
 let absensiStore = loadJSON(LS_KEYS.absensi, {}); // key -> [{noKK,nama,status}]
-let materiExpanded = {}; // index -> bool (buka/tutup ringkasan materi)
+let materiExpanded = {}; // index -> bool (buka/tutup detail per modul)
+let materiCardOpen = false; // buka/tutup seluruh kartu ringkasan materi (gulung)
 
 let currentView = 'beranda';
 let berandaDesaFilter = '';
@@ -516,19 +572,15 @@ function render() {
 /* ============================================================
    RINGKASAN MATERI P2K2
    ============================================================ */
+const JUDUL_PDF_MATERI = 'RINGKASAN MATERI P2K2 MENURUT PERMENSOS NO 8 TAHUN 2026';
+
 function renderMateriCard() {
   return `
-  <div class="section-title" style="display:flex; align-items:center; justify-content:space-between">
+  <div class="section-title" data-act="toggle-materi-card" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer">
     <span>Ringkasan Materi P2K2</span>
-    <div style="display:flex; gap:6px">
-      <button class="icon-btn-sm" type="button" id="export-materi-pdf" title="Export PDF">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg>
-      </button>
-      <button class="icon-btn-sm" type="button" id="share-materi-pdf" title="Bagikan PDF">
-        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
-      </button>
-    </div>
+    <svg viewBox="0 0 24 24" width="18" height="18" style="stroke:var(--ink-400); fill:none; stroke-width:2; transform:rotate(${materiCardOpen ? '180deg' : '0deg'}); transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg>
   </div>
+  ${!materiCardOpen ? `<div class="hint" style="margin:-4px 2px 4px">Tap untuk membuka ${RINGKASAN_MATERI.length} modul materi P2K2.</div>` : `
   <div class="card" style="padding:6px 12px">
     ${RINGKASAN_MATERI.map((m, i) => {
       const open = !!materiExpanded[i];
@@ -543,15 +595,38 @@ function renderMateriCard() {
           </div>
         </div>
         ${open ? `
-        <ul style="margin:8px 0 2px; padding-left:20px">
+        <div style="font-size:11.5px; color:var(--ink-400); font-style:italic; margin:6px 0 8px; line-height:1.5">${esc(m.tujuan)}</div>
+
+        <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-800); margin-bottom:4px">Materi Pokok</div>
+        <ul style="margin:0 0 10px; padding-left:20px">
           ${m.poin.map(p => `<li style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin-bottom:3px">${esc(p)}</li>`).join('')}
-        </ul>` : ''}
+        </ul>
+
+        <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-800); margin-bottom:4px">Pengembangan Kegiatan Kelas</div>
+        <ul style="margin:0 0 10px; padding-left:20px">
+          ${m.kegiatan.map(k => `<li style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin-bottom:3px">${esc(k)}</li>`).join('')}
+        </ul>
+
+        <div style="display:flex; gap:8px">
+          <button class="btn ghost" type="button" data-act="export-materi" data-idx="${i}" style="font-size:12px; padding:7px 12px">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg>
+            Export PDF
+          </button>
+          <button class="btn ghost" type="button" data-act="share-materi" data-idx="${i}" style="font-size:12px; padding:7px 12px; width:auto">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
+          </button>
+        </div>` : ''}
       </div>`;
     }).join('')}
-  </div>`;
+  </div>`}
+  `;
 }
 
 function bindMateriCard() {
+  document.querySelector('[data-act="toggle-materi-card"]')?.addEventListener('click', () => {
+    materiCardOpen = !materiCardOpen;
+    render();
+  });
   document.querySelectorAll('[data-act="toggle-materi"]').forEach(row => {
     row.addEventListener('click', () => {
       const idx = row.dataset.idx;
@@ -559,11 +634,22 @@ function bindMateriCard() {
       render();
     });
   });
-  document.getElementById('export-materi-pdf')?.addEventListener('click', exportRingkasanMateriPDF);
-  document.getElementById('share-materi-pdf')?.addEventListener('click', shareRingkasanMateriPDF);
+  document.querySelectorAll('[data-act="export-materi"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exportRingkasanMateriPDF(Number(btn.dataset.idx));
+    });
+  });
+  document.querySelectorAll('[data-act="share-materi"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      shareRingkasanMateriPDF(Number(btn.dataset.idx));
+    });
+  });
 }
 
-function buildRingkasanMateriDoc() {
+function buildRingkasanMateriDoc(idx) {
+  const m = RINGKASAN_MATERI[idx];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -576,14 +662,17 @@ function buildRingkasanMateriDoc() {
   try { if (typeof LOGO_PKH !== 'undefined') { const w = logoH * LOGO_PKH_RATIO; doc.addImage(LOGO_PKH, 'JPEG', pageW - marginX - w, 8, w, logoH); } } catch (e) {}
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text('RINGKASAN MATERI P2K2', pageW / 2, 14, { align: 'center' });
+  doc.setFontSize(12.5);
+  const titleLines = doc.splitTextToSize(JUDUL_PDF_MATERI, pageW - marginX * 2 - 60);
+  doc.text(titleLines, pageW / 2, 13, { align: 'center' });
+  let cursorY = 13 + (titleLines.length - 1) * 5;
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   const lokasi = [settings.kecamatan, settings.kabupaten, settings.provinsi].filter(Boolean).join(', ');
-  if (lokasi) doc.text(lokasi, pageW / 2, 20, { align: 'center' });
+  if (lokasi) { cursorY += 6; doc.text(lokasi, pageW / 2, cursorY, { align: 'center' }); }
 
-  const headerBottomY = Math.max(24, 8 + logoH + 3);
+  const headerBottomY = Math.max(cursorY + 4, 8 + logoH + 3);
   doc.setDrawColor(11, 93, 82);
   doc.setLineWidth(0.5);
   doc.line(marginX, headerBottomY, pageW - marginX, headerBottomY);
@@ -600,46 +689,66 @@ function buildRingkasanMateriDoc() {
     }
   };
 
-  RINGKASAN_MATERI.forEach((m, i) => {
+  // Judul modul
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  const modulLines = doc.splitTextToSize(`Modul ${idx + 1}: ${m.judul}`, pageW - marginX * 2);
+  ensureSpace(modulLines.length * lineH + 3);
+  doc.setTextColor(11, 93, 82);
+  doc.text(modulLines, marginX, y);
+  doc.setTextColor(20, 20, 20);
+  y += modulLines.length * lineH + 4;
+
+  // Tujuan
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(10);
+  const tujuanLines = doc.splitTextToSize(m.tujuan, pageW - marginX * 2);
+  ensureSpace(tujuanLines.length * lineH + 4);
+  doc.text(tujuanLines, marginX, y);
+  y += tujuanLines.length * lineH + 6;
+
+  const renderSection = (heading, items) => {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11.5);
-    const judulLines = doc.splitTextToSize(`${i + 1}. ${m.judul}`, pageW - marginX * 2);
-    ensureSpace(judulLines.length * lineH + 3);
+    doc.setFontSize(10.5);
+    ensureSpace(lineH + 2);
     doc.setTextColor(11, 93, 82);
-    doc.text(judulLines, marginX, y);
+    doc.text(heading.toUpperCase(), marginX, y);
     doc.setTextColor(20, 20, 20);
-    y += judulLines.length * lineH + 1.5;
+    y += lineH + 1;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    m.poin.forEach(p => {
-      const poinLines = doc.splitTextToSize(p, textW);
-      ensureSpace(poinLines.length * lineH);
+    items.forEach(p => {
+      const pLines = doc.splitTextToSize(p, textW);
+      ensureSpace(pLines.length * lineH);
       doc.text('•', marginX + 1, y);
-      doc.text(poinLines, marginX + bulletIndent, y);
-      y += poinLines.length * lineH;
+      doc.text(pLines, marginX + bulletIndent, y);
+      y += pLines.length * lineH;
     });
-    y += 4;
-  });
+    y += 5;
+  };
 
-  const fname = `Ringkasan_Materi_P2K2.pdf`;
+  renderSection('Materi Pokok', m.poin);
+  renderSection('Pengembangan Kegiatan Kelas', m.kegiatan);
+
+  const fname = `Ringkasan_Materi_P2K2_Modul${idx + 1}_${m.judul.replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 40)}.pdf`;
   return { doc, fname };
 }
 
-function exportRingkasanMateriPDF() {
-  const { doc, fname } = buildRingkasanMateriDoc();
+function exportRingkasanMateriPDF(idx) {
+  const { doc, fname } = buildRingkasanMateriDoc(idx);
   doc.save(fname);
   toast('PDF ringkasan materi diunduh');
 }
 
-async function shareRingkasanMateriPDF() {
-  const { doc, fname } = buildRingkasanMateriDoc();
+async function shareRingkasanMateriPDF(idx) {
+  const { doc, fname } = buildRingkasanMateriDoc(idx);
   const blob = doc.output('blob');
   const file = new File([blob], fname, { type: 'application/pdf' });
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: fname, text: 'Ringkasan Materi P2K2' });
+      await navigator.share({ files: [file], title: fname, text: RINGKASAN_MATERI[idx].judul });
     } catch (e) {
       if (e.name !== 'AbortError') toast('Gagal membuka menu share');
     }
@@ -648,6 +757,7 @@ async function shareRingkasanMateriPDF() {
     toast('Share tidak didukung di perangkat ini — PDF diunduh');
   }
 }
+
 
 /* ============================================================
    BERANDA (DASHBOARD)
