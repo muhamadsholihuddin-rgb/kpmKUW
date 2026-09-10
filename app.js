@@ -79,121 +79,472 @@ const MODUL_DATA = {
 const RINGKASAN_MATERI = [
   {
     judul: 'Bimbingan Mental dan Spiritual',
-    tujuan: 'Menguatkan nilai agama, moral, dan keharmonisan keluarga KPM sebagai fondasi kehidupan berkeluarga.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '90–120 menit (1 sesi pertemuan)',
+      metode: 'Ceramah interaktif, diskusi kelompok, curah pendapat, roleplay, refleksi',
+      media: 'Flipchart/papan tulis, spidol, kartu komitmen, kartu skenario roleplay'
+    },
+    tujuanUmum: 'Peserta mampu menguatkan nilai agama dan moral serta membangun keluarga yang harmonis sebagai fondasi kesejahteraan keluarga.',
+    tujuanKhusus: [
+      'Menjelaskan pentingnya nilai agama dan moral dalam kehidupan berkeluarga.',
+      'Mengidentifikasi ciri-ciri keluarga harmonis dan faktor yang memengaruhinya.',
+      'Memahami tanggung jawab orang tua terhadap anak dan pasangan.',
+      'Mempraktikkan cara berkomunikasi yang sehat dan menyelesaikan konflik keluarga secara konstruktif.',
+      'Membiasakan sikap disiplin, jujur, bersyukur, dan saling menghargai dalam keluarga.'
+    ],
+    materiPokok: [
       'Penguatan nilai agama dan moral.',
       'Membangun keluarga harmonis.',
       'Tanggung jawab orang tua.',
       'Komunikasi dan penyelesaian konflik dalam keluarga.',
       'Membiasakan disiplin, jujur, bersyukur, dan saling menghargai.'
     ],
-    kegiatan: [
-      'Pembukaan dengan doa bersama & renungan singkat sesuai keyakinan masing-masing peserta.',
-      'Diskusi kelompok kecil: berbagi pengalaman menjaga keharmonisan keluarga sehari-hari.',
-      'Roleplay sederhana penyelesaian konflik keluarga (mis. beda pendapat soal pengeluaran rumah tangga).',
-      'Curah pendapat: nilai-nilai apa yang ingin diwariskan kepada anak.',
-      'Penutup: menuliskan satu komitmen pribadi kebiasaan baik yang akan diterapkan minggu ini.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Fasilitator membuka sesi dengan salam dan doa bersama sesuai keyakinan masing-masing peserta.',
+          'Ice breaking singkat untuk mencairkan suasana.',
+          'Fasilitator menyampaikan tujuan dan alur sesi hari ini.'
+        ]
+      },
+      inti: {
+        waktu: '60–80 menit',
+        sub: [
+          { judul: 'Curah Pendapat', waktu: '15 menit', poin: [
+            'Fasilitator mengajukan pertanyaan pemantik: "Menurut Bapak/Ibu, apa yang membuat sebuah keluarga disebut harmonis?"',
+            'Peserta menyampaikan pendapat secara bergantian, dicatat di flipchart.'
+          ]},
+          { judul: 'Penyampaian Materi', waktu: '20 menit', poin: [
+            'Fasilitator memaparkan nilai-nilai agama dan moral sebagai fondasi keluarga, ciri keluarga harmonis, dan tanggung jawab orang tua.',
+            'Diselingi tanya jawab agar peserta aktif.'
+          ]},
+          { judul: 'Diskusi Kelompok Kecil', waktu: '15 menit', poin: [
+            'Peserta dibagi 3–4 kelompok kecil.',
+            'Tiap kelompok berbagi pengalaman nyata mengenai tantangan menjaga keharmonisan keluarga sehari-hari, lalu menuliskan 1 solusi yang pernah berhasil diterapkan.'
+          ]},
+          { judul: 'Roleplay Penyelesaian Konflik', waktu: '15–20 menit', poin: [
+            'Fasilitator membagikan kartu skenario sederhana (mis. beda pendapat soal pengeluaran rumah tangga, anak bandel, dsb).',
+            '2 pasang peserta memperagakan skenario: cara yang kurang tepat vs cara komunikasi yang sehat.',
+            'Diskusi bersama mengenai perbedaan dampaknya bagi keluarga.'
+          ]},
+          { judul: 'Curah Pendapat Nilai Keluarga', waktu: '10 menit', poin: [
+            'Fasilitator mengajukan pertanyaan: "Nilai apa yang ingin Bapak/Ibu wariskan kepada anak?"',
+            'Beberapa peserta berbagi secara sukarela.'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10–15 menit',
+        poin: [
+          'Fasilitator merangkum poin-poin penting sesi.',
+          'Kartu Komitmen: setiap peserta menuliskan 1 kebiasaan baik (disiplin/jujur/bersyukur/menghargai) yang akan diterapkan di rumah minggu ini.',
+          'Doa penutup bersama.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Evaluasi proses: pengamatan fasilitator terhadap keaktifan peserta dalam diskusi dan roleplay.',
+      'Evaluasi hasil: kartu komitmen yang diisi peserta, ditinjau kembali pada sesi berikutnya sebagai bentuk tindak lanjut.',
+      'Pertanyaan reflektif penutup: "Satu hal apa yang paling berkesan dari sesi hari ini?"'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   },
   {
     judul: 'Pengelolaan Keuangan dan Perencanaan Usaha',
-    tujuan: 'Meningkatkan kemampuan KPM mengelola keuangan rumah tangga dan merintis/mengembangkan usaha keluarga.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '90–120 menit (1 sesi pertemuan)',
+      metode: 'Ceramah interaktif, simulasi, permainan kelompok, diskusi, curah pendapat',
+      media: 'Flipchart/papan tulis, spidol, buku kas sederhana, kartu contoh barang belanja'
+    },
+    tujuanUmum: 'Peserta mampu mengelola keuangan keluarga secara bijak dan merintis/mengembangkan usaha keluarga.',
+    tujuanKhusus: [
+      'Menjelaskan cara mengatur pendapatan dan pengeluaran keluarga.',
+      'Membedakan kebutuhan dan keinginan dalam berbelanja.',
+      'Membiasakan menabung secara rutin.',
+      'Menghindari utang konsumtif dan memahami risikonya.',
+      'Merencanakan dan mengembangkan usaha keluarga sesuai potensi yang dimiliki.'
+    ],
+    materiPokok: [
       'Mengatur pendapatan dan pengeluaran keluarga.',
       'Membedakan kebutuhan dan keinginan.',
       'Membiasakan menabung.',
       'Menghindari utang konsumtif.',
       'Merencanakan dan mengembangkan usaha keluarga.'
     ],
-    kegiatan: [
-      'Simulasi mencatat pemasukan dan pengeluaran seminggu terakhir di buku kas sederhana.',
-      'Permainan "Kebutuhan vs Keinginan": peserta menyortir kartu contoh barang ke dua kelompok.',
-      'Diskusi kelompok: pengalaman berutang dan cara-cara menghindarinya.',
-      'Latihan menyusun target tabungan mingguan yang realistis.',
-      'Sharing ide usaha rumahan sesuai potensi dan sumber daya di desa masing-masing.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Salam dan doa pembuka.',
+          'Ice breaking: permainan "lempar bola pertanyaan keuangan".',
+          'Fasilitator menyampaikan tujuan dan alur sesi.'
+        ]
+      },
+      inti: {
+        waktu: '60–80 menit',
+        sub: [
+          { judul: 'Curah Pendapat', waktu: '10 menit', poin: [
+            'Fasilitator bertanya: "Apa tantangan terbesar Bapak/Ibu dalam mengatur uang belanja bulanan?"'
+          ]},
+          { judul: 'Penyampaian Materi', waktu: '15 menit', poin: [
+            'Konsep dasar mengatur pendapatan dan pengeluaran, membedakan kebutuhan vs keinginan, pentingnya menabung, dan bahaya utang konsumtif.'
+          ]},
+          { judul: 'Simulasi Pencatatan Keuangan', waktu: '15 menit', poin: [
+            'Peserta mencatat pemasukan dan pengeluaran seminggu terakhir di buku kas sederhana yang dibagikan fasilitator.'
+          ]},
+          { judul: 'Permainan "Kebutuhan vs Keinginan"', waktu: '15 menit', poin: [
+            'Peserta menyortir kartu contoh barang (beras, pulsa hiburan, sabun, rokok, dsb.) ke dua kelompok: kebutuhan dan keinginan, lalu didiskusikan bersama.'
+          ]},
+          { judul: 'Diskusi Kelompok: Pengalaman Berutang', waktu: '10 menit', poin: [
+            'Peserta berbagi pengalaman berutang dan cara-cara menghindari utang konsumtif.'
+          ]},
+          { judul: 'Sharing Ide Usaha Keluarga', waktu: '10–15 menit', poin: [
+            'Tiap kelompok berbagi ide usaha rumahan sesuai potensi dan sumber daya di desa masing-masing (mis. olahan hasil pertanian, jasa, kerajinan).'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10–15 menit',
+        poin: [
+          'Fasilitator merangkum poin-poin penting sesi.',
+          'Peserta menyusun target tabungan mingguan sederhana di kartu pribadi.',
+          'Doa penutup.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Pengamatan keaktifan peserta selama simulasi dan permainan kelompok.',
+      'Hasil catatan buku kas sederhana dan target tabungan yang diisi peserta.',
+      'Ditinjau kembali pada sesi berikutnya sebagai bentuk tindak lanjut.'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   },
   {
     judul: 'Kesehatan dan Gizi',
-    tujuan: 'Meningkatkan pengetahuan dan praktik keluarga dalam menjaga kesehatan ibu, anak, serta pemenuhan gizi keluarga.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '90–120 menit (1 sesi pertemuan)',
+      metode: 'Ceramah interaktif, demo praktik, simulasi, diskusi kelompok',
+      media: 'Flipchart/papan tulis, spidol, contoh bahan pangan/gambar makanan, sabun cuci tangan'
+    },
+    tujuanUmum: 'Peserta mampu menerapkan pola hidup sehat dan pemenuhan gizi keluarga guna mendukung tumbuh kembang optimal dan mencegah stunting.',
+    tujuanKhusus: [
+      'Menjelaskan pentingnya menjaga kesehatan ibu dan anak.',
+      'Menyusun menu bergizi seimbang dengan bahan pangan lokal.',
+      'Mengenali tanda dan langkah pencegahan stunting.',
+      'Menerapkan PHBS (Perilaku Hidup Bersih dan Sehat) dan sanitasi di rumah tangga.',
+      'Memanfaatkan fasilitas kesehatan (Posyandu/Puskesmas) secara rutin.'
+    ],
+    materiPokok: [
       'Menjaga kesehatan ibu dan anak.',
       'Pemenuhan gizi keluarga.',
       'Pencegahan stunting.',
       'PHBS dan sanitasi.',
       'Pemanfaatan fasilitas kesehatan.'
     ],
-    kegiatan: [
-      'Penyuluhan singkat "Isi Piringku" dan demo praktik menyusun menu bergizi dengan bahan lokal murah.',
-      'Diskusi kelompok tanda-tanda dan cara pencegahan stunting sejak 1.000 Hari Pertama Kehidupan.',
-      'Simulasi praktik cuci tangan pakai sabun yang benar bersama peserta.',
-      'Sharing pengalaman memanfaatkan Posyandu/Puskesmas dan hambatan yang dihadapi.',
-      'Ajakan komitmen kunjungan rutin ke fasilitas kesehatan terdekat.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Salam, doa, dan ice breaking (mis. tebak gambar makanan sehat).',
+          'Fasilitator menyampaikan tujuan sesi.'
+        ]
+      },
+      inti: {
+        waktu: '60–80 menit',
+        sub: [
+          { judul: 'Curah Pendapat', waktu: '10 menit', poin: [
+            'Fasilitator bertanya: "Apa saja makanan bergizi yang mudah didapat di sekitar kita?"'
+          ]},
+          { judul: 'Penyampaian Materi "Isi Piringku"', waktu: '15 menit', poin: [
+            'Proporsi karbohidrat, protein, sayur, dan buah menggunakan bahan pangan lokal yang murah dan mudah didapat.'
+          ]},
+          { judul: 'Demo Praktik Menyusun Menu', waktu: '15 menit', poin: [
+            'Peserta berkelompok menyusun 1 contoh menu sehari dengan bahan yang biasa mereka beli.'
+          ]},
+          { judul: 'Diskusi Pencegahan Stunting', waktu: '15 menit', poin: [
+            'Mengenali ciri dan tahapan pencegahan stunting sejak 1.000 Hari Pertama Kehidupan (HPK).'
+          ]},
+          { judul: 'Simulasi Cuci Tangan Pakai Sabun', waktu: '10 menit', poin: [
+            'Praktik langkah-langkah cuci tangan yang benar bersama-sama.'
+          ]},
+          { judul: 'Sharing Pengalaman Posyandu/Puskesmas', waktu: '10 menit', poin: [
+            'Peserta berbagi hambatan dan solusi dalam memanfaatkan layanan kesehatan terdekat.'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10–15 menit',
+        poin: [
+          'Fasilitator merangkum poin-poin penting sesi.',
+          'Peserta menuliskan komitmen kunjungan rutin ke fasilitas kesehatan pada kartu pribadi.',
+          'Doa penutup.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Pengamatan keaktifan peserta dalam diskusi dan demo praktik.',
+      'Hasil menu kelompok yang disusun bersama.',
+      'Komitmen kunjungan fasilitas kesehatan yang ditulis peserta, ditindaklanjuti pada sesi berikutnya.'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   },
   {
     judul: 'Kesejahteraan Sosial',
-    tujuan: 'Memastikan pemenuhan hak dan perlindungan sosial bagi seluruh anggota keluarga, termasuk lansia dan penyandang disabilitas.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '90–110 menit (1 sesi pertemuan)',
+      metode: 'Diskusi kasus, curah pendapat, roleplay, latihan pengisian formulir',
+      media: 'Flipchart/papan tulis, spidol, contoh formulir pengajuan layanan sosial'
+    },
+    tujuanUmum: 'Peserta mampu memastikan pemenuhan hak dan perlindungan sosial bagi seluruh anggota keluarga, termasuk lansia dan penyandang disabilitas.',
+    tujuanKhusus: [
+      'Menjelaskan hak-hak dasar lansia dan penyandang disabilitas dalam keluarga.',
+      'Menerapkan cara merawat dan mendukung kemandirian anggota keluarga yang membutuhkan.',
+      'Mengidentifikasi akses layanan dan perlindungan sosial yang tersedia.',
+      'Mengenali dan mencegah tindakan penelantaran serta diskriminasi dalam keluarga.'
+    ],
+    materiPokok: [
       'Pemenuhan hak lansia dan penyandang disabilitas.',
       'Kemandirian dan perawatan anggota keluarga yang membutuhkan.',
       'Akses terhadap layanan dan perlindungan sosial.',
       'Mencegah penelantaran dan diskriminasi.'
     ],
-    kegiatan: [
-      'Diskusi kasus: bagaimana keluarga merawat lansia/disabilitas di rumah secara mandiri.',
-      'Curah pendapat mengenai hak-hak dasar anggota keluarga yang perlu dipenuhi.',
-      'Roleplay tata cara melaporkan dugaan penelantaran/diskriminasi kepada pihak berwenang.',
-      'Sharing informasi layanan dan perlindungan sosial yang tersedia di desa/kecamatan.',
-      'Latihan mengisi formulir pengajuan bantuan/layanan sosial secara sederhana.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Salam, doa, dan ice breaking singkat.',
+          'Fasilitator menyampaikan tujuan sesi.'
+        ]
+      },
+      inti: {
+        waktu: '60–75 menit',
+        sub: [
+          { judul: 'Diskusi Kasus', waktu: '15 menit', poin: [
+            'Peserta berbagi pengalaman nyata bagaimana keluarga merawat lansia/disabilitas di rumah secara mandiri.'
+          ]},
+          { judul: 'Curah Pendapat Hak Dasar', waktu: '10 menit', poin: [
+            'Diskusi mengenai hak-hak dasar yang perlu dipenuhi bagi lansia/disabilitas dalam keluarga.'
+          ]},
+          { judul: 'Penyampaian Materi', waktu: '15 menit', poin: [
+            'Jenis layanan dan perlindungan sosial yang tersedia (mis. bansos lansia, kartu disabilitas, dsb).'
+          ]},
+          { judul: 'Roleplay Pelaporan Kasus', waktu: '15 menit', poin: [
+            'Simulasi cara melaporkan dugaan penelantaran/diskriminasi kepada pihak berwenang (RT/RW, desa, Dinas Sosial).'
+          ]},
+          { judul: 'Latihan Mengisi Formulir Pengajuan Layanan', waktu: '10–15 menit', poin: [
+            'Peserta berlatih mengisi formulir sederhana pengajuan bantuan/layanan sosial.'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10–15 menit',
+        poin: [
+          'Fasilitator merangkum poin-poin penting sesi.',
+          'Komitmen bersama untuk saling peduli terhadap anggota keluarga yang rentan.',
+          'Doa penutup.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Pengamatan keaktifan peserta dalam diskusi dan roleplay.',
+      'Formulir latihan yang berhasil diisi peserta.',
+      'Ditindaklanjuti pada kunjungan rumah/sesi berikutnya.'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   },
   {
     judul: 'Fasilitasi, Mediasi, Edukasi, Motivasi dan Advokasi',
-    tujuan: 'Membekali pendamping dan KPM dalam mengakses layanan, menyelesaikan masalah administrasi, serta membangun kemandirian.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '90–120 menit (1 sesi pertemuan)',
+      metode: 'Curah pendapat, simulasi, roleplay, diskusi kelompok, sesi motivasi',
+      media: 'Flipchart/papan tulis, spidol, contoh formulir/dokumen, kartu RTL (Rencana Tindak Lanjut)'
+    },
+    tujuanUmum: 'Peserta (didampingi fasilitator) mampu memfasilitasi, memediasi, dan memotivasi diri sendiri agar mampu mengakses layanan dan menyelesaikan masalah secara mandiri.',
+    tujuanKhusus: [
+      'Memahami cara mengakses layanan kesehatan dan pendidikan.',
+      'Membantu penyelesaian masalah administrasi kependudukan/sosial.',
+      'Melakukan mediasi sederhana dengan pihak terkait (sekolah, puskesmas, desa).',
+      'Membangun motivasi untuk menyelesaikan masalah secara mandiri.',
+      'Mengetahui layanan/program bantuan yang sesuai dengan kebutuhan keluarga.'
+    ],
+    materiPokok: [
       'Membantu KPM mengakses layanan kesehatan dan pendidikan.',
       'Membantu penyelesaian masalah administrasi.',
       'Mediasi dengan pihak terkait.',
       'Memberikan motivasi agar KPM mampu menyelesaikan masalah secara mandiri.',
       'Mengarahkan KPM kepada layanan/program yang sesuai.'
     ],
-    kegiatan: [
-      'Simulasi pendampingan KPM mengurus dokumen (KTP, KIS, akta, dsb).',
-      'Roleplay mediasi antara KPM dengan pihak layanan (sekolah/puskesmas/desa).',
-      'Diskusi kelompok mengenai hambatan KPM mengakses layanan dan solusinya.',
-      'Sesi motivasi: berbagi kisah sukses KPM lain yang berhasil mandiri.',
-      'Latihan menyusun rencana tindak lanjut (RTL) individu bersama pendamping.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Salam, doa, dan ice breaking singkat.',
+          'Fasilitator menyampaikan tujuan sesi.'
+        ]
+      },
+      inti: {
+        waktu: '60–80 menit',
+        sub: [
+          { judul: 'Curah Pendapat', waktu: '10 menit', poin: [
+            'Fasilitator bertanya: "Kesulitan apa yang paling sering dihadapi saat mengurus dokumen atau layanan?"'
+          ]},
+          { judul: 'Simulasi Pendampingan Dokumen', waktu: '15 menit', poin: [
+            'Peserta berlatih langkah-langkah mengurus dokumen (KTP, KIS, akta kelahiran, dsb).'
+          ]},
+          { judul: 'Roleplay Mediasi', waktu: '15–20 menit', poin: [
+            '2 peserta memperagakan proses mediasi antara KPM dan pihak layanan (mis. sekolah/puskesmas) yang awalnya berkomunikasi kurang lancar.'
+          ]},
+          { judul: 'Diskusi Kelompok: Hambatan Akses Layanan', waktu: '10 menit', poin: [
+            'Identifikasi hambatan yang dialami peserta dan solusi bersama.'
+          ]},
+          { judul: 'Sesi Motivasi — Kisah Sukses', waktu: '10–15 menit', poin: [
+            'Berbagi kisah sukses KPM lain yang berhasil mandiri, dilanjutkan diskusi hikmah yang bisa diambil.'
+          ]},
+          { judul: 'Latihan Menyusun Rencana Tindak Lanjut (RTL)', waktu: '10 menit', poin: [
+            'Tiap peserta menuliskan 1 langkah konkret yang akan dilakukan untuk menyelesaikan kendala pribadinya.'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10–15 menit',
+        poin: [
+          'Fasilitator merangkum poin-poin penting sesi.',
+          'Pengumpulan kartu RTL peserta.',
+          'Doa penutup.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Pengamatan keaktifan peserta dalam roleplay dan diskusi.',
+      'Kartu RTL yang ditulis peserta.',
+      'Ditindaklanjuti oleh pendamping pada kunjungan rumah berikutnya.'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   },
   {
     judul: 'P2K2 Adaptif',
-    tujuan: 'Menyesuaikan materi P2K2 dengan kondisi dan permasalahan aktual yang sedang dihadapi kelompok KPM.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '65–90 menit (bersifat fleksibel sesuai kebutuhan kelompok)',
+      metode: 'Curah pendapat, diskusi kelompok, studi kasus kontekstual, refleksi',
+      media: 'Flipchart/papan tulis, spidol, contoh kasus kontekstual sesuai wilayah'
+    },
+    tujuanUmum: 'Peserta dan pendamping mampu menyesuaikan materi P2K2 dengan kondisi dan permasalahan aktual yang dihadapi kelompok.',
+    tujuanKhusus: [
+      'Mengidentifikasi masalah aktual (sosial, ekonomi, kesehatan, pendidikan, keluarga, kebencanaan) yang sedang dihadapi kelompok.',
+      'Merumuskan solusi bersama atas isu terkini yang relevan dengan kondisi wilayah.',
+      'Menyusun rencana aksi kolektif berdasarkan hasil diskusi kelompok.'
+    ],
+    materiPokok: [
       'Materi disesuaikan dengan kondisi dan masalah aktual KPM.',
       'Dapat membahas isu sosial, ekonomi, kesehatan, pendidikan, keluarga, maupun kebencanaan.',
       'Fokus pada masalah nyata yang sedang dihadapi kelompok.'
     ],
-    kegiatan: [
-      'Curah pendapat mengenai masalah aktual yang sedang dihadapi kelompok saat ini.',
-      'Diskusi kelompok mencari solusi bersama atas isu terkini di desa/kelompok.',
-      'Studi kasus kontekstual sesuai kondisi wilayah (mis. musim tanam, bencana, wabah).',
-      'Refleksi kelompok dan penyusunan rencana aksi kolektif.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Salam dan doa pembuka.',
+          'Fasilitator menjelaskan bahwa sesi ini bersifat fleksibel dan disesuaikan kebutuhan kelompok saat ini.'
+        ]
+      },
+      inti: {
+        waktu: '45–60 menit',
+        sub: [
+          { judul: 'Curah Pendapat Masalah Aktual', waktu: '15 menit', poin: [
+            'Fasilitator menggali isu yang sedang dihadapi kelompok saat ini (mis. gagal panen, wabah penyakit, kesulitan ekonomi musiman, dsb).'
+          ]},
+          { judul: 'Diskusi Kelompok Mencari Solusi', waktu: '15–20 menit', poin: [
+            'Kelompok kecil membahas dan merumuskan solusi bersama atas isu yang terpilih.'
+          ]},
+          { judul: 'Studi Kasus Kontekstual', waktu: '10–15 menit', poin: [
+            'Fasilitator membawakan 1 contoh kasus nyata sesuai kondisi wilayah untuk dibahas bersama.'
+          ]},
+          { judul: 'Refleksi Kelompok', waktu: '10 menit', poin: [
+            'Tiap kelompok memaparkan hasil diskusi dan rencana aksi singkat.'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10 menit',
+        poin: [
+          'Fasilitator merangkum hasil diskusi.',
+          'Kesepakatan rencana aksi kolektif kelompok.',
+          'Doa penutup.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Relevansi solusi yang dirumuskan dengan masalah aktual yang dihadapi.',
+      'Komitmen rencana aksi kolektif yang disepakati kelompok.',
+      'Dipantau tindak lanjutnya oleh pendamping pada pertemuan berikutnya.'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   },
   {
     judul: 'Materi Tambahan / Isu Relevan',
-    tujuan: 'Memberikan edukasi tambahan sesuai kebutuhan masyarakat dan isu terkini di luar modul reguler.',
-    poin: [
+    identitas: {
+      sasaran: 'KPM PKH (Keluarga Penerima Manfaat)',
+      waktu: '65–100 menit (topik dan durasi fleksibel sesuai isu terkini)',
+      metode: 'Penyuluhan tematik, nonton bersama, simulasi/praktik, tanya jawab',
+      media: 'Proyektor/HP & speaker (bila tersedia), flipchart, materi tematik sesuai topik'
+    },
+    tujuanUmum: 'Peserta memperoleh edukasi tambahan sesuai kebutuhan masyarakat dan isu terkini di luar modul reguler.',
+    tujuanKhusus: [
+      'Memahami isu terkini yang relevan (kebijakan pemerintah, perlindungan sosial, pemberdayaan ekonomi, pencegahan kekerasan, literasi digital, dsb).',
+      'Mempraktikkan keterampilan dasar terkait isu yang dibahas (mis. mengenali hoaks, keamanan digital dasar).',
+      'Memanfaatkan informasi/layanan terkait isu yang dibahas untuk kepentingan keluarga.'
+    ],
+    materiPokok: [
       'Materi sesuai kebutuhan masyarakat dan kondisi terkini.',
       'Dapat berupa edukasi kebijakan pemerintah, perlindungan sosial, pemberdayaan ekonomi, pencegahan kekerasan, literasi digital, dan isu sosial lainnya.'
     ],
-    kegiatan: [
-      'Penyuluhan tematik sesuai isu terkini (literasi digital, pencegahan kekerasan, dsb).',
-      'Nonton bersama video edukasi singkat dilanjutkan diskusi.',
-      'Simulasi/praktik langsung (mis. keamanan digital, cara mengenali hoaks).',
-      'Sesi tanya jawab dengan narasumber/OPD terkait bila memungkinkan.'
-    ]
+    langkah: {
+      pembukaan: {
+        waktu: '10 menit',
+        poin: [
+          'Salam dan doa pembuka.',
+          'Fasilitator menyampaikan topik tematik hari ini sesuai kebutuhan/isu terkini.'
+        ]
+      },
+      inti: {
+        waktu: '45–70 menit',
+        sub: [
+          { judul: 'Penyuluhan Tematik', waktu: '20 menit', poin: [
+            'Fasilitator atau narasumber menyampaikan materi sesuai isu terpilih.'
+          ]},
+          { judul: 'Nonton Bersama & Diskusi', waktu: '20 menit', poin: [
+            'Menonton video edukasi singkat, dilanjutkan diskusi poin-poin pentingnya.'
+          ]},
+          { judul: 'Simulasi/Praktik Langsung', waktu: '15 menit', poin: [
+            'Mis. praktik mengenali ciri berita hoaks, cara mengamankan akun digital, dsb. sesuai topik yang dibahas.'
+          ]},
+          { judul: 'Sesi Tanya Jawab', waktu: '10–15 menit', poin: [
+            'Dengan narasumber/OPD terkait bila tersedia, atau fasilitator menjawab pertanyaan peserta.'
+          ]}
+        ]
+      },
+      penutup: {
+        waktu: '10 menit',
+        poin: [
+          'Fasilitator merangkum poin-poin penting.',
+          'Ajakan menerapkan hasil pembelajaran dalam kehidupan sehari-hari.',
+          'Doa penutup.'
+        ]
+      }
+    },
+    evaluasi: [
+      'Keaktifan peserta dalam sesi tanya jawab.',
+      'Pemahaman peserta terhadap topik, dicek melalui pertanyaan lisan singkat.',
+      'Rencana penerapan pribadi yang disampaikan peserta secara sukarela.'
+    ],
+    rujukan: 'Peraturan Menteri Sosial Republik Indonesia Nomor 8 Tahun 2026.'
   }
 ];
 
@@ -584,6 +935,8 @@ function renderMateriCard() {
   <div class="card" style="padding:6px 12px">
     ${RINGKASAN_MATERI.map((m, i) => {
       const open = !!materiExpanded[i];
+      const label = (t) => `<div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-800); margin:10px 0 4px">${t}</div>`;
+      const ul = (items) => `<ul style="margin:0 0 4px; padding-left:20px">${items.map(p => `<li style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin-bottom:3px">${esc(p)}</li>`).join('')}</ul>`;
       return `
       <div style="border-bottom:${i < RINGKASAN_MATERI.length - 1 ? '1px solid var(--line)' : 'none'}; padding:9px 0">
         <div class="row" data-act="toggle-materi" data-idx="${i}" style="cursor:pointer; align-items:center">
@@ -595,19 +948,40 @@ function renderMateriCard() {
           </div>
         </div>
         ${open ? `
-        <div style="font-size:11.5px; color:var(--ink-400); font-style:italic; margin:6px 0 8px; line-height:1.5">${esc(m.tujuan)}</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; font-size:11px; color:var(--ink-400); margin:6px 0 4px">
+          <div><strong style="color:var(--ink-600)">Waktu:</strong> ${esc(m.identitas.waktu)}</div>
+          <div><strong style="color:var(--ink-600)">Sasaran:</strong> ${esc(m.identitas.sasaran)}</div>
+          <div style="grid-column:1/-1"><strong style="color:var(--ink-600)">Metode:</strong> ${esc(m.identitas.metode)}</div>
+          <div style="grid-column:1/-1"><strong style="color:var(--ink-600)">Media:</strong> ${esc(m.identitas.media)}</div>
+        </div>
 
-        <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-800); margin-bottom:4px">Materi Pokok</div>
-        <ul style="margin:0 0 10px; padding-left:20px">
-          ${m.poin.map(p => `<li style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin-bottom:3px">${esc(p)}</li>`).join('')}
-        </ul>
+        ${label('Tujuan Umum')}
+        <div style="font-size:12.5px; color:var(--ink-600); font-style:italic; line-height:1.5">${esc(m.tujuanUmum)}</div>
 
-        <div style="font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--navy-800); margin-bottom:4px">Pengembangan Kegiatan Kelas</div>
-        <ul style="margin:0 0 10px; padding-left:20px">
-          ${m.kegiatan.map(k => `<li style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin-bottom:3px">${esc(k)}</li>`).join('')}
-        </ul>
+        ${label('Tujuan Khusus')}
+        ${ul(m.tujuanKhusus)}
 
-        <div style="display:flex; gap:8px">
+        ${label('Materi Pokok')}
+        ${ul(m.materiPokok)}
+
+        ${label('Langkah Kegiatan — Pembukaan (' + esc(m.langkah.pembukaan.waktu) + ')')}
+        ${ul(m.langkah.pembukaan.poin)}
+
+        ${label('Langkah Kegiatan — Inti (' + esc(m.langkah.inti.waktu) + ')')}
+        ${m.langkah.inti.sub.map(s => `
+          <div style="font-size:12px; font-weight:700; color:var(--navy-800); margin:6px 0 2px">${esc(s.judul)} <span style="font-weight:500; color:var(--ink-400)">(${esc(s.waktu)})</span></div>
+          ${ul(s.poin)}
+        `).join('')}
+
+        ${label('Langkah Kegiatan — Penutup (' + esc(m.langkah.penutup.waktu) + ')')}
+        ${ul(m.langkah.penutup.poin)}
+
+        ${label('Evaluasi / Penilaian')}
+        ${ul(m.evaluasi)}
+
+        <div style="font-size:10.5px; color:var(--ink-400); margin-top:6px">Rujukan: ${esc(m.rujukan)}</div>
+
+        <div style="display:flex; gap:8px; margin-top:10px">
           <button class="btn ghost" type="button" data-act="export-materi" data-idx="${i}" style="font-size:12px; padding:7px 12px">
             <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h3"/></svg>
             Export PDF
@@ -656,7 +1030,19 @@ function buildRingkasanMateriDoc(idx) {
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 16;
   const marginBottom = 18;
+  const lineH = 5;
+  const bulletIndent = 6;
+  const textW = pageW - marginX * 2 - bulletIndent;
+  let y = 0;
 
+  const ensureSpace = (needed) => {
+    if (y + needed > pageH - marginBottom) {
+      doc.addPage();
+      y = 18;
+    }
+  };
+
+  // Kop surat (hanya di halaman pertama)
   const logoH = 13;
   try { if (typeof LOGO_KEMENSOS !== 'undefined') { const w = logoH * LOGO_KEMENSOS_RATIO; doc.addImage(LOGO_KEMENSOS, 'JPEG', marginX, 8, w, logoH); } } catch (e) {}
   try { if (typeof LOGO_PKH !== 'undefined') { const w = logoH * LOGO_PKH_RATIO; doc.addImage(LOGO_PKH, 'JPEG', pageW - marginX - w, 8, w, logoH); } } catch (e) {}
@@ -676,60 +1062,154 @@ function buildRingkasanMateriDoc(idx) {
   doc.setDrawColor(11, 93, 82);
   doc.setLineWidth(0.5);
   doc.line(marginX, headerBottomY, pageW - marginX, headerBottomY);
-
-  let y = headerBottomY + 9;
-  const lineH = 5;
-  const bulletIndent = 6;
-  const textW = pageW - marginX * 2 - bulletIndent;
-
-  const ensureSpace = (needed) => {
-    if (y + needed > pageH - marginBottom) {
-      doc.addPage();
-      y = 18;
-    }
-  };
+  y = headerBottomY + 8;
 
   // Judul modul
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  const modulLines = doc.splitTextToSize(`Modul ${idx + 1}: ${m.judul}`, pageW - marginX * 2);
-  ensureSpace(modulLines.length * lineH + 3);
+  doc.setFontSize(13.5);
+  const modulLines = doc.splitTextToSize(`MODUL ${idx + 1}: ${m.judul.toUpperCase()}`, pageW - marginX * 2);
+  ensureSpace(modulLines.length * lineH + 4);
   doc.setTextColor(11, 93, 82);
   doc.text(modulLines, marginX, y);
   doc.setTextColor(20, 20, 20);
-  y += modulLines.length * lineH + 4;
+  y += modulLines.length * lineH + 5;
 
-  // Tujuan
-  doc.setFont('helvetica', 'italic');
+  // A. Identitas Modul (tabel ringkas 2 kolom)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  ensureSpace(lineH + 2);
+  doc.setTextColor(11, 93, 82);
+  doc.text('A. IDENTITAS MODUL', marginX, y);
+  doc.setTextColor(20, 20, 20);
+  y += lineH + 1.5;
+
+  const identRows = [
+    ['Sasaran', m.identitas.sasaran],
+    ['Alokasi Waktu', m.identitas.waktu],
+    ['Metode', m.identitas.metode],
+    ['Media/Alat Bantu', m.identitas.media]
+  ];
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  const tujuanLines = doc.splitTextToSize(m.tujuan, pageW - marginX * 2);
-  ensureSpace(tujuanLines.length * lineH + 4);
-  doc.text(tujuanLines, marginX, y);
-  y += tujuanLines.length * lineH + 6;
+  const labelW = 34;
+  identRows.forEach(([label, val]) => {
+    const valLines = doc.splitTextToSize(val, pageW - marginX * 2 - labelW);
+    ensureSpace(valLines.length * lineH);
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(valLines, marginX + labelW, y);
+    y += valLines.length * lineH;
+  });
+  y += 5;
 
-  const renderSection = (heading, items) => {
+  const renderHeading = (text) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
     ensureSpace(lineH + 2);
     doc.setTextColor(11, 93, 82);
-    doc.text(heading.toUpperCase(), marginX, y);
+    doc.text(text, marginX, y);
     doc.setTextColor(20, 20, 20);
-    y += lineH + 1;
+    y += lineH + 1.5;
+  };
 
+  const renderBulletList = (items, indentExtra) => {
+    const ix = indentExtra || 0;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     items.forEach(p => {
+      const pLines = doc.splitTextToSize(p, textW - ix);
+      ensureSpace(pLines.length * lineH);
+      doc.text('•', marginX + 1 + ix, y);
+      doc.text(pLines, marginX + bulletIndent + ix, y);
+      y += pLines.length * lineH;
+    });
+  };
+
+  const renderNumberedList = (items) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    items.forEach((p, i) => {
       const pLines = doc.splitTextToSize(p, textW);
       ensureSpace(pLines.length * lineH);
-      doc.text('•', marginX + 1, y);
+      doc.text(`${i + 1}.`, marginX + 1, y);
       doc.text(pLines, marginX + bulletIndent, y);
       y += pLines.length * lineH;
     });
-    y += 5;
   };
 
-  renderSection('Materi Pokok', m.poin);
-  renderSection('Pengembangan Kegiatan Kelas', m.kegiatan);
+  // B. Tujuan Pembelajaran
+  renderHeading('B. TUJUAN PEMBELAJARAN');
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(10);
+  const tujuanUmumLines = doc.splitTextToSize('Tujuan Umum: ' + m.tujuanUmum, pageW - marginX * 2);
+  ensureSpace(tujuanUmumLines.length * lineH + 3);
+  doc.text(tujuanUmumLines, marginX, y);
+  y += tujuanUmumLines.length * lineH + 4;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  ensureSpace(lineH);
+  doc.text('Tujuan Khusus — setelah mengikuti sesi ini peserta mampu:', marginX, y);
+  y += lineH + 1;
+  renderNumberedList(m.tujuanKhusus);
+  y += 5;
+
+  // C. Materi Pokok
+  renderHeading('C. MATERI POKOK');
+  renderNumberedList(m.materiPokok);
+  y += 5;
+
+  // D. Langkah-Langkah Kegiatan
+  renderHeading('D. LANGKAH-LANGKAH KEGIATAN');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  ensureSpace(lineH);
+  doc.text(`1. Pembukaan (${m.langkah.pembukaan.waktu})`, marginX, y);
+  y += lineH + 1;
+  renderBulletList(m.langkah.pembukaan.poin);
+  y += 4;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  ensureSpace(lineH);
+  doc.text(`2. Kegiatan Inti (${m.langkah.inti.waktu})`, marginX, y);
+  y += lineH + 1;
+  m.langkah.inti.sub.forEach((s, i) => {
+    const letter = String.fromCharCode(97 + i); // a, b, c...
+    doc.setFont('helvetica', 'bolditalic');
+    doc.setFontSize(10);
+    const subLines = doc.splitTextToSize(`${letter}. ${s.judul} (${s.waktu})`, textW - 6);
+    ensureSpace(subLines.length * lineH);
+    doc.text(subLines, marginX + 6, y);
+    y += subLines.length * lineH + 0.5;
+    renderBulletList(s.poin, 6);
+    y += 2.5;
+  });
+  y += 2;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  ensureSpace(lineH);
+  doc.text(`3. Penutup (${m.langkah.penutup.waktu})`, marginX, y);
+  y += lineH + 1;
+  renderBulletList(m.langkah.penutup.poin);
+  y += 5;
+
+  // E. Evaluasi
+  renderHeading('E. EVALUASI / PENILAIAN');
+  renderBulletList(m.evaluasi);
+  y += 5;
+
+  // F. Rujukan
+  renderHeading('F. RUJUKAN');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const rujukanLines = doc.splitTextToSize(m.rujukan, pageW - marginX * 2);
+  ensureSpace(rujukanLines.length * lineH);
+  doc.text(rujukanLines, marginX, y);
+  y += rujukanLines.length * lineH;
 
   const fname = `Ringkasan_Materi_P2K2_Modul${idx + 1}_${m.judul.replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 40)}.pdf`;
   return { doc, fname };
