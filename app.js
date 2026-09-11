@@ -556,6 +556,7 @@ if (!settings.kelompokByDesa) settings.kelompokByDesa = {};
 if (settings.kecamatan === undefined) settings.kecamatan = 'Gurah';
 if (settings.kabupaten === undefined) settings.kabupaten = 'Kediri';
 if (settings.provinsi === undefined) settings.provinsi = 'Jawa Timur';
+if (settings.geotagFormatWaktu === undefined) settings.geotagFormatWaktu = 'tanggal_jam'; // 'tanggal_jam' | 'tanggal'
 let absensiStore = loadJSON(LS_KEYS.absensi, {}); // key -> [{noKK,nama,status}]
 let materiExpanded = {}; // index -> bool (buka/tutup detail per modul)
 let materiCardOpen = false; // buka/tutup seluruh kartu ringkasan materi (gulung)
@@ -847,12 +848,15 @@ let _cam = {
   galleryCache: null
 };
 
-function fmtWaktuGeotag(d) {
+function fmtWaktuGeotag(d, mode) {
+  mode = mode || settings.geotagFormatWaktu || 'tanggal_jam';
   const hari2 = String(d.getDate()).padStart(2, '0');
   const bln2 = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()];
+  const tanggalStr = `${hari2} ${bln2} ${d.getFullYear()}`;
+  if (mode === 'tanggal') return tanggalStr;
   const jam2 = String(d.getHours()).padStart(2, '0');
   const mnt2 = String(d.getMinutes()).padStart(2, '0');
-  return `${hari2} ${bln2} ${d.getFullYear()}, ${jam2}:${mnt2}`;
+  return `${tanggalStr}, ${jam2}:${mnt2}`;
 }
 function fmtUkuranFile(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -1196,50 +1200,85 @@ function renderKameraView() {
     `;
   }
 
-  return `
-  <div class="cam-wrap">
-    <video id="cam-video" playsinline muted></video>
-    ${_cam.usingFallback ? `
+  if (_cam.usingFallback) {
+    return `
+    <div class="cam-wrap">
       <div class="cam-fallback">
         <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.2A2 2 0 0110.2 5h3.6a2 2 0 011.7.8L17 8h3a1.5 1.5 0 011.5 1.5v9A1.5 1.5 0 0120 20H4a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 014 8z"/><circle cx="12" cy="13.5" r="3.6"/></svg>
         <p>Kamera langsung tidak tersedia di browser ini (izin ditolak atau tidak didukung). Gunakan kamera bawaan HP.</p>
         <button class="btn gold" id="cam-fallback-btn" type="button">Buka Kamera HP</button>
         <input type="file" id="cam-fallback-input" accept="image/*" capture="environment" style="display:none">
       </div>
-    ` : `
-      <div class="cam-status"><span id="cam-status-chip" class="cam-chip locating">Mencari lokasi…</span></div>
-      <div class="cam-shutter-bar">
-        <button class="cam-shutter" id="cam-shutter-btn" type="button" aria-label="Ambil foto">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-        </button>
-      </div>
-    `}
-  </div>
-  <div class="hint" style="text-align:center; margin-top:10px">Foto akan otomatis diberi watermark lokasi &amp; dikompres di bawah 500 KB.</div>
+    </div>
+    <div class="hint" style="text-align:center; margin-top:10px">Foto akan otomatis diberi watermark lokasi &amp; dikompres di bawah 500 KB.</div>
+
+    <div class="section-title">Galeri Foto Geotag</div>
+    <div id="cam-gallery-wrap"><div class="hint">Memuat galeri…</div></div>
+    `;
+  }
+
+  // Kamera langsung dibuka di layar penuh (di luar frame aplikasi), lihat openCameraFullscreen().
+  return `
+  <div class="hint" style="text-align:center; margin:26px 0 10px">Kamera dibuka di layar penuh…</div>
 
   <div class="section-title">Galeri Foto Geotag</div>
   <div id="cam-gallery-wrap"><div class="hint">Memuat galeri…</div></div>
   `;
 }
 
+/** Render markup video kamera langsung (dipasang ke dalam overlay fullscreen, bukan ke #main,
+ * supaya tampilan kamera mengisi seluruh layar dan menyesuaikan saat HP dirotasi). */
+function renderCamFullscreenHTML() {
+  return `
+    <button class="cam-fs-close" id="cam-fs-close" type="button" aria-label="Tutup kamera">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <video id="cam-video" playsinline muted autoplay></video>
+    <div class="cam-status"><span id="cam-status-chip" class="cam-chip locating">Mencari lokasi…</span></div>
+    <div class="cam-shutter-bar">
+      <button class="cam-shutter" id="cam-shutter-btn" type="button" aria-label="Ambil foto">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function openCameraFullscreen() {
+  const overlay = document.getElementById('cam-fullscreen');
+  const inner = document.getElementById('cam-fs-inner');
+  if (!overlay || !inner) return;
+  inner.innerHTML = renderCamFullscreenHTML();
+  overlay.classList.add('open');
+  document.body.classList.add('cam-fs-active');
+  document.getElementById('cam-fs-close').addEventListener('click', () => setView('beranda'));
+  document.getElementById('cam-shutter-btn').addEventListener('click', capturePhotoFromVideo);
+  updateCamStatusChip();
+  startCameraStream();
+  if (_cam.locateStatus === 'idle') requestLocation();
+}
+
+function closeCameraFullscreen() {
+  const overlay = document.getElementById('cam-fullscreen');
+  if (overlay) overlay.classList.remove('open');
+  document.body.classList.remove('cam-fs-active');
+}
+
 function bindKameraView() {
   updateCamStatusChip();
   if (_cam.resultBlob) {
+    closeCameraFullscreen();
     document.getElementById('cam-retake').addEventListener('click', retakePhoto);
     document.getElementById('cam-download').addEventListener('click', () => downloadGeoFotoBlob(_cam.resultBlob));
     document.getElementById('cam-save-gallery').addEventListener('click', saveResultToGallery);
+  } else if (_cam.usingFallback) {
+    closeCameraFullscreen();
+    const inp = document.getElementById('cam-fallback-input');
+    document.getElementById('cam-fallback-btn').addEventListener('click', () => inp.click());
+    inp.addEventListener('change', () => {
+      if (inp.files && inp.files[0]) capturePhotoFromFile(inp.files[0]);
+    });
   } else {
-    if (_cam.usingFallback) {
-      const inp = document.getElementById('cam-fallback-input');
-      document.getElementById('cam-fallback-btn').addEventListener('click', () => inp.click());
-      inp.addEventListener('change', () => {
-        if (inp.files && inp.files[0]) capturePhotoFromFile(inp.files[0]);
-      });
-    } else {
-      document.getElementById('cam-shutter-btn').addEventListener('click', capturePhotoFromVideo);
-      startCameraStream();
-      if (_cam.locateStatus === 'idle') requestLocation();
-    }
+    openCameraFullscreen();
   }
   refreshCamGallery();
 }
@@ -1350,6 +1389,7 @@ function setView(view, push = true) {
   const prevView = currentView;
   if (prevView === 'kamera' && view !== 'kamera') {
     stopCameraStream();
+    closeCameraFullscreen();
     if (_cam.resultURL) { URL.revokeObjectURL(_cam.resultURL); }
     _cam.resultBlob = null;
     _cam.resultURL = null;
@@ -2822,6 +2862,18 @@ function renderPengaturanView() {
     <input type="file" id="file-ttd" accept="image/*">
   </div>
 
+  <div class="section-title">Kamera Geotag</div>
+  <div class="card">
+    <div class="field">
+      <label>Info Waktu pada Watermark Foto</label>
+      <select id="set-geotag-format">
+        <option value="tanggal_jam" ${settings.geotagFormatWaktu !== 'tanggal' ? 'selected' : ''}>Tanggal &amp; Jam</option>
+        <option value="tanggal" ${settings.geotagFormatWaktu === 'tanggal' ? 'selected' : ''}>Tanggal saja</option>
+      </select>
+    </div>
+    <div class="hint">Mengatur info waktu yang ditampilkan pada watermark foto kamera geotag (berlaku untuk foto baru).</div>
+  </div>
+
   <div class="section-title">Data KPM</div>
   <div class="card settings-card">
     <div class="row"><div class="k">Total data tersimpan</div><div class="v">${kpmData.length} KPM</div></div>
@@ -2929,6 +2981,11 @@ function bindPengaturanView() {
     saveSettings();
     updateHeaderBadge();
     toast('Profil disimpan');
+  });
+  document.getElementById('set-geotag-format').addEventListener('change', (e) => {
+    settings.geotagFormatWaktu = e.target.value;
+    saveSettings();
+    toast('Pengaturan watermark waktu disimpan');
   });
   document.getElementById('btn-import').addEventListener('click', () => document.getElementById('file-import').click());
   document.getElementById('file-import').addEventListener('change', handleImportExcel);

@@ -475,6 +475,26 @@ body.install-banner-active .app-header{
 .cam-gallery-del svg{width:11px; height:11px; stroke:#fff; fill:none; stroke-width:2.4;}
 .cam-view-large img{width:100%; border-radius:var(--radius-md); display:block;}
 
+/* ---- Kamera Fullscreen (di luar frame aplikasi) ---- */
+body.cam-fs-active{overflow:hidden;}
+body.cam-fs-active .app-header, body.cam-fs-active .bottom-nav{display:none !important;}
+.cam-fullscreen{
+  position:fixed; inset:0; z-index:9999; background:#000;
+  display:none;
+}
+.cam-fullscreen.open{display:block;}
+.cam-fullscreen #cam-fs-inner{position:relative; width:100%; height:100%; height:100dvh;}
+.cam-fullscreen video{width:100%; height:100%; object-fit:cover; display:block; background:#000;}
+.cam-fullscreen .cam-status{top:calc(14px + env(safe-area-inset-top)); left:64px; right:14px;}
+.cam-fullscreen .cam-shutter-bar{padding-bottom:calc(22px + env(safe-area-inset-bottom));}
+.cam-fullscreen .cam-fallback{color:#fff;}
+.cam-fs-close{
+  position:absolute; z-index:2; top:calc(14px + env(safe-area-inset-top)); left:14px;
+  width:38px; height:38px; border-radius:50%; background:rgba(11,31,58,.55); border:none;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.cam-fs-close svg{width:18px; height:18px; stroke:#fff; fill:none; stroke-width:2.2;}
+
 </style>
 </head>
 <body>
@@ -522,6 +542,10 @@ body.install-banner-active .app-header{
 
 <div class="modal-backdrop" id="modal-backdrop">
   <div class="modal" id="modal-body"></div>
+</div>
+
+<div class="cam-fullscreen" id="cam-fullscreen">
+  <div id="cam-fs-inner"></div>
 </div>
 
 <div class="toast" id="toast"></div>
