@@ -783,6 +783,467 @@ function blobToBase64(blob) {
   });
 }
 
+/* ============================================================
+   KAMERA GEOTAG — ambil foto + watermark lokasi (mirip "GPS Map
+   Camera"), dikompres otomatis supaya ukuran file < 500 KB.
+   Foto tersimpan (opsional) di IndexedDB terpisah: kpm_geofoto_db.
+   ============================================================ */
+const GEOFOTO_MAX_BYTES = 500 * 1024; // 500 KB
+const GEOFOTO_DB_NAME = 'kpm_geofoto_db';
+const GEOFOTO_STORE = 'geofotos';
+let _geoFotoDbPromise = null;
+
+function openGeoFotoDB() {
+  if (_geoFotoDbPromise) return _geoFotoDbPromise;
+  _geoFotoDbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(GEOFOTO_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(GEOFOTO_STORE)) {
+        db.createObjectStore(GEOFOTO_STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _geoFotoDbPromise;
+}
+async function saveGeoFoto(entry) {
+  const db = await openGeoFotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(GEOFOTO_STORE, 'readwrite');
+    tx.objectStore(GEOFOTO_STORE).put(entry);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function deleteGeoFoto(id) {
+  const db = await openGeoFotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(GEOFOTO_STORE, 'readwrite');
+    tx.objectStore(GEOFOTO_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getAllGeoFotos() {
+  const db = await openGeoFotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(GEOFOTO_STORE, 'readonly');
+    const req = tx.objectStore(GEOFOTO_STORE).getAll();
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.capturedAt - a.capturedAt));
+    req.onerror = () => reject(req.error);
+  });
+}
+
+let _cam = {
+  stream: null,
+  usingFallback: false,
+  coords: null,        // {lat, lon, accuracy}
+  address: null,        // hasil reverse geocode (object) atau null
+  locateStatus: 'idle',  // idle | locating | ok | err
+  resultBlob: null,
+  resultURL: null,
+  galleryCache: null
+};
+
+function fmtWaktuGeotag(d) {
+  const hari2 = String(d.getDate()).padStart(2, '0');
+  const bln2 = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()];
+  const jam2 = String(d.getHours()).padStart(2, '0');
+  const mnt2 = String(d.getMinutes()).padStart(2, '0');
+  return `${hari2} ${bln2} ${d.getFullYear()}, ${jam2}:${mnt2}`;
+}
+function fmtUkuranFile(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+/** Susun baris alamat dari hasil Nominatim reverse-geocode (best-effort,
+ * penamaan wilayah OSM tidak selalu konsisten per daerah). */
+function buildAlamatLines(nominatim) {
+  if (!nominatim || !nominatim.address) return null;
+  const a = nominatim.address;
+  const jalan = a.road || a.pedestrian || a.residential || a.hamlet || a.neighbourhood || '';
+  const desa = a.village || a.suburb || '';
+  const kec = a.city_district || a.suburb || a.county || '';
+  const kab = a.county || a.city || a.regency || a.municipality || '';
+  const prov = a.state || '';
+
+  const lines = [];
+  const baris1 = [jalan, (desa && desa !== kec) ? desa : ''].filter(Boolean).join(', ');
+  if (baris1) lines.push(baris1);
+  if (kec) lines.push(kec.toLowerCase().startsWith('kec') ? kec : `Kecamatan ${kec}`);
+  if (kab && kab !== kec) lines.push(kab.toLowerCase().startsWith('kab') || kab.toLowerCase().startsWith('kota') ? kab : `Kabupaten ${kab}`);
+  if (prov) lines.push(prov);
+
+  if (lines.length === 0 && nominatim.display_name) {
+    // fallback: pakai display_name, potong maksimal 4 bagian pertama
+    return nominatim.display_name.split(',').slice(0, 4).map(s => s.trim());
+  }
+  return lines;
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) throw new Error('geocode gagal');
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+function requestLocation() {
+  _cam.locateStatus = 'locating';
+  _cam.coords = null;
+  _cam.address = null;
+  updateCamStatusChip();
+  if (!('geolocation' in navigator)) {
+    _cam.locateStatus = 'err';
+    updateCamStatusChip();
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    _cam.coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy };
+    const geo = await reverseGeocode(_cam.coords.lat, _cam.coords.lon);
+    _cam.address = buildAlamatLines(geo);
+    _cam.locateStatus = 'ok';
+    updateCamStatusChip();
+  }, () => {
+    _cam.locateStatus = 'err';
+    updateCamStatusChip();
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+
+function updateCamStatusChip() {
+  const el = document.getElementById('cam-status-chip');
+  if (!el) return;
+  if (_cam.locateStatus === 'locating') {
+    el.className = 'cam-chip locating';
+    el.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg> Mencari lokasi…`;
+  } else if (_cam.locateStatus === 'ok') {
+    el.className = 'cam-chip ok';
+    el.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 22s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/></svg> Lokasi didapat`;
+  } else {
+    el.className = 'cam-chip err';
+    el.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 22s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/></svg> Lokasi tidak tersedia`;
+  }
+}
+
+async function startCameraStream() {
+  const video = document.getElementById('cam-video');
+  if (!video) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false
+    });
+    _cam.stream = stream;
+    _cam.usingFallback = false;
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+  } catch (e) {
+    _cam.usingFallback = true;
+    render();
+  }
+}
+function stopCameraStream() {
+  if (_cam.stream) {
+    _cam.stream.getTracks().forEach(t => t.stop());
+    _cam.stream = null;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (currentView !== 'kamera') return;
+  if (document.hidden) stopCameraStream();
+  else if (!_cam.usingFallback && !_cam.resultBlob) startCameraStream();
+});
+
+/** Gambar overlay geotag (alamat + koordinat + waktu) di atas canvas foto. */
+async function drawGeotagOverlay(canvas) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  try { await document.fonts.ready; } catch (e) {}
+
+  const lines = [];
+  if (_cam.address && _cam.address.length) lines.push(..._cam.address);
+  else if (_cam.coords) lines.push('Alamat tidak terdeteksi');
+  if (_cam.coords) {
+    lines.push(`${_cam.coords.lat.toFixed(6)}, ${_cam.coords.lon.toFixed(6)}`);
+  }
+  lines.push(fmtWaktuGeotag(new Date()));
+
+  const fontSize = Math.max(15, Math.round(w / 34));
+  const lineHeight = Math.round(fontSize * 1.35);
+  const padX = Math.round(w * 0.035);
+  const padY = Math.round(w * 0.03);
+
+  ctx.font = `700 ${fontSize}px Inter, Arial, sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+
+  let maxTextW = 0;
+  lines.forEach((ln, i) => {
+    const text = i === 0 ? `📍 ${ln}` : ln;
+    maxTextW = Math.max(maxTextW, ctx.measureText(text).width);
+  });
+
+  const blockH = lines.length * lineHeight + padY;
+  const gradTop = h - blockH - padY * 0.6;
+  const grad = ctx.createLinearGradient(0, gradTop, 0, h);
+  grad.addColorStop(0, 'rgba(11,15,20,0)');
+  grad.addColorStop(1, 'rgba(11,15,20,0.62)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, gradTop, w, h - gradTop);
+
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = Math.max(2, fontSize * 0.12);
+  ctx.fillStyle = '#ffffff';
+
+  let y = h - padY - (lines.length - 1) * lineHeight;
+  lines.forEach((ln, i) => {
+    const text = i === 0 ? `📍 ${ln}` : ln;
+    ctx.font = i === lines.length - 1
+      ? `600 ${Math.round(fontSize * 0.85)}px Inter, Arial, sans-serif`
+      : `700 ${fontSize}px Inter, Arial, sans-serif`;
+    ctx.fillText(text, w - padX, y);
+    y += lineHeight;
+  });
+  ctx.shadowBlur = 0;
+}
+
+/** Kompres canvas jadi JPEG di bawah GEOFOTO_MAX_BYTES (turunkan kualitas,
+ * lalu perkecil dimensi kalau kualitas minimum masih kebesaran). */
+async function canvasToBlobUnderLimit(canvas, maxBytes = GEOFOTO_MAX_BYTES) {
+  let cnv = canvas, quality = 0.92, lastBlob = null;
+  for (let attempt = 0; attempt < 16; attempt++) {
+    lastBlob = await new Promise(res => cnv.toBlob(res, 'image/jpeg', quality));
+    if (!lastBlob) break;
+    if (lastBlob.size <= maxBytes) return lastBlob;
+    if (quality > 0.45) {
+      quality -= 0.08;
+    } else {
+      const nw = Math.round(cnv.width * 0.85), nh = Math.round(cnv.height * 0.85);
+      if (nw < 360 || nh < 360) break;
+      const c2 = document.createElement('canvas');
+      c2.width = nw; c2.height = nh;
+      c2.getContext('2d').drawImage(cnv, 0, 0, nw, nh);
+      cnv = c2; quality = 0.82;
+    }
+  }
+  return lastBlob;
+}
+
+async function processCapturedCanvas(canvas) {
+  await drawGeotagOverlay(canvas);
+  const blob = await canvasToBlobUnderLimit(canvas);
+  if (_cam.resultURL) URL.revokeObjectURL(_cam.resultURL);
+  _cam.resultBlob = blob;
+  _cam.resultURL = URL.createObjectURL(blob);
+  stopCameraStream();
+  render();
+}
+
+function capturePhotoFromVideo() {
+  const video = document.getElementById('cam-video');
+  if (!video || !video.videoWidth) { toast('Kamera belum siap'); return; }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  processCapturedCanvas(canvas);
+}
+
+function capturePhotoFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1600;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else { width = Math.round(width * maxDim / height); height = maxDim; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      processCapturedCanvas(canvas);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function retakePhoto() {
+  if (_cam.resultURL) URL.revokeObjectURL(_cam.resultURL);
+  _cam.resultBlob = null;
+  _cam.resultURL = null;
+  _cam.locateStatus = 'idle'; // paksa bindKameraView minta ulang lokasi terbaru
+  render();
+}
+
+function downloadGeoFotoBlob(blob) {
+  const a = document.createElement('a');
+  const namaFile = `Geotag_${todayISO()}_${Date.now()}.jpg`;
+  a.href = URL.createObjectURL(blob);
+  a.download = namaFile;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+async function saveResultToGallery() {
+  if (!_cam.resultBlob) return;
+  const entry = {
+    id: uid(),
+    blob: _cam.resultBlob,
+    size: _cam.resultBlob.size,
+    lat: _cam.coords ? _cam.coords.lat : null,
+    lon: _cam.coords ? _cam.coords.lon : null,
+    alamat: _cam.address ? _cam.address.join(', ') : '',
+    capturedAt: Date.now()
+  };
+  await saveGeoFoto(entry);
+  toast('Foto disimpan ke galeri');
+  _cam.galleryCache = null;
+  render();
+}
+
+async function refreshCamGallery() {
+  const wrap = document.getElementById('cam-gallery-wrap');
+  if (!wrap) return;
+  const list = await getAllGeoFotos();
+  _cam.galleryCache = list;
+  wrap.innerHTML = renderCamGalleryHTML(list);
+  bindCamGalleryEvents();
+}
+
+function renderCamGalleryHTML(list) {
+  if (!list || list.length === 0) {
+    return `<div class="hint" style="margin-top:10px">Belum ada foto tersimpan di galeri.</div>`;
+  }
+  return `<div class="cam-gallery">${list.map(item => `
+    <div class="cam-gallery-item" data-cam-view="${item.id}">
+      <img src="${URL.createObjectURL(item.blob)}" alt="">
+      <span class="cam-gallery-size">${fmtUkuranFile(item.size)}</span>
+      <button class="cam-gallery-del" data-cam-del="${item.id}" aria-label="Hapus"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>`).join('')}</div>`;
+}
+
+function bindCamGalleryEvents() {
+  document.querySelectorAll('[data-cam-view]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cam-del]')) return;
+      const item = (_cam.galleryCache || []).find(x => x.id === el.dataset.camView);
+      if (!item) return;
+      openModal(`
+        <div class="modal-head"><h3>Foto Geotag</h3><button class="modal-close" data-act="close-modal"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="cam-view-large"><img src="${URL.createObjectURL(item.blob)}" alt=""></div>
+        <div class="cam-info-card">
+          <div class="cam-info-row"><b>Ukuran</b><span>${fmtUkuranFile(item.size)}</span></div>
+          ${item.alamat ? `<div class="cam-info-row"><b>Alamat</b><span>${esc(item.alamat)}</span></div>` : ''}
+          ${item.lat ? `<div class="cam-info-row"><b>Koordinat</b><span>${item.lat.toFixed(6)}, ${item.lon.toFixed(6)}</span></div>` : ''}
+          <div class="cam-info-row"><b>Waktu</b><span>${fmtWaktuGeotag(new Date(item.capturedAt))}</span></div>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn secondary" id="cam-large-download">Unduh</button>
+        </div>
+      `);
+      document.getElementById('cam-large-download').addEventListener('click', () => downloadGeoFotoBlob(item.blob));
+    });
+  });
+  document.querySelectorAll('[data-cam-del]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.camDel;
+      await deleteGeoFoto(id);
+      toast('Foto dihapus');
+      refreshCamGallery();
+    });
+  });
+}
+
+function renderKameraView() {
+  if (_cam.resultBlob) {
+    return `
+    <div class="cam-wrap">
+      <img class="cam-result" src="${_cam.resultURL}" alt="Hasil foto">
+    </div>
+    <div class="cam-info-card">
+      <div class="cam-info-row"><b>Ukuran file</b>
+        <span>${fmtUkuranFile(_cam.resultBlob.size)}
+          <span class="cam-size-pill ${_cam.resultBlob.size <= GEOFOTO_MAX_BYTES ? 'ok' : 'warn'}">${_cam.resultBlob.size <= GEOFOTO_MAX_BYTES ? '≤ 500 KB' : '> 500 KB (foto sangat kompleks)'}</span>
+        </span>
+      </div>
+      ${_cam.address && _cam.address.length ? `<div class="cam-info-row"><b>Alamat</b><span>${esc(_cam.address.join(', '))}</span></div>` : `<div class="cam-info-row"><b>Alamat</b><span>Tidak terdeteksi</span></div>`}
+      ${_cam.coords ? `<div class="cam-info-row"><b>Koordinat</b><span>${_cam.coords.lat.toFixed(6)}, ${_cam.coords.lon.toFixed(6)}</span></div>` : ''}
+      <div class="cam-info-row"><b>Waktu</b><span>${fmtWaktuGeotag(new Date())}</span></div>
+    </div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn secondary" id="cam-retake">Ambil Ulang</button>
+      <button class="btn gold" id="cam-download">Unduh Foto</button>
+    </div>
+    <button class="btn" id="cam-save-gallery" style="margin-top:8px">Simpan ke Galeri</button>
+
+    <div class="section-title">Galeri Foto Geotag</div>
+    <div id="cam-gallery-wrap"><div class="hint">Memuat galeri…</div></div>
+    `;
+  }
+
+  return `
+  <div class="cam-wrap">
+    <video id="cam-video" playsinline muted></video>
+    ${_cam.usingFallback ? `
+      <div class="cam-fallback">
+        <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.2A2 2 0 0110.2 5h3.6a2 2 0 011.7.8L17 8h3a1.5 1.5 0 011.5 1.5v9A1.5 1.5 0 0120 20H4a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 014 8z"/><circle cx="12" cy="13.5" r="3.6"/></svg>
+        <p>Kamera langsung tidak tersedia di browser ini (izin ditolak atau tidak didukung). Gunakan kamera bawaan HP.</p>
+        <button class="btn gold" id="cam-fallback-btn" type="button">Buka Kamera HP</button>
+        <input type="file" id="cam-fallback-input" accept="image/*" capture="environment" style="display:none">
+      </div>
+    ` : `
+      <div class="cam-status"><span id="cam-status-chip" class="cam-chip locating">Mencari lokasi…</span></div>
+      <div class="cam-shutter-bar">
+        <button class="cam-shutter" id="cam-shutter-btn" type="button" aria-label="Ambil foto">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+        </button>
+      </div>
+    `}
+  </div>
+  <div class="hint" style="text-align:center; margin-top:10px">Foto akan otomatis diberi watermark lokasi &amp; dikompres di bawah 500 KB.</div>
+
+  <div class="section-title">Galeri Foto Geotag</div>
+  <div id="cam-gallery-wrap"><div class="hint">Memuat galeri…</div></div>
+  `;
+}
+
+function bindKameraView() {
+  updateCamStatusChip();
+  if (_cam.resultBlob) {
+    document.getElementById('cam-retake').addEventListener('click', retakePhoto);
+    document.getElementById('cam-download').addEventListener('click', () => downloadGeoFotoBlob(_cam.resultBlob));
+    document.getElementById('cam-save-gallery').addEventListener('click', saveResultToGallery);
+  } else {
+    if (_cam.usingFallback) {
+      const inp = document.getElementById('cam-fallback-input');
+      document.getElementById('cam-fallback-btn').addEventListener('click', () => inp.click());
+      inp.addEventListener('change', () => {
+        if (inp.files && inp.files[0]) capturePhotoFromFile(inp.files[0]);
+      });
+    } else {
+      document.getElementById('cam-shutter-btn').addEventListener('click', capturePhotoFromVideo);
+      startCameraStream();
+      if (_cam.locateStatus === 'idle') requestLocation();
+    }
+  }
+  refreshCamGallery();
+}
+
 function todayISO() {
   const d = new Date();
   return d.toISOString().slice(0, 10);
@@ -881,10 +1342,19 @@ const HEADER_META = {
   data: ['Kelola', 'Data KPM', 'Daftar KPM per desa & kelompok'],
   status: ['Pemantauan', 'Status KPM', 'Pengaduan & status kepesertaan'],
   absensi: ['FDS / P2K2', 'Absensi', 'Rekap kehadiran pertemuan kelompok'],
+  kamera: ['Dokumentasi', 'Kamera', 'Foto lapangan dengan watermark lokasi'],
   pengaturan: ['Akun', 'Pengaturan', 'Profil, data, & pemutakhiran']
 };
 
 function setView(view, push = true) {
+  const prevView = currentView;
+  if (prevView === 'kamera' && view !== 'kamera') {
+    stopCameraStream();
+    if (_cam.resultURL) { URL.revokeObjectURL(_cam.resultURL); }
+    _cam.resultBlob = null;
+    _cam.resultURL = null;
+    _cam.locateStatus = 'idle';
+  }
   currentView = view;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   const [eyebrow, title, sub] = HEADER_META[view];
@@ -917,6 +1387,7 @@ function render() {
   else if (currentView === 'data') { main.innerHTML = renderDataView(); bindDataView(); }
   else if (currentView === 'status') { main.innerHTML = renderStatusView(); bindStatusView(); }
   else if (currentView === 'absensi') { main.innerHTML = renderAbsensiView(); bindAbsensiView(); }
+  else if (currentView === 'kamera') { main.innerHTML = renderKameraView(); bindKameraView(); }
   else if (currentView === 'pengaturan') { main.innerHTML = renderPengaturanView(); bindPengaturanView(); }
 }
 

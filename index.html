@@ -87,12 +87,12 @@ main{padding:16px; max-width:640px; margin:0 auto;}
   box-shadow:0 -2px 12px rgba(30,58,95,.08);
 }
 .nav-btn{
-  flex:1; border:none; background:none; padding:9px 2px 8px;
+  flex:1; border:none; background:none; padding:9px 1px 8px;
   display:flex; flex-direction:column; align-items:center; gap:3px;
-  color:var(--ink-400); font-size:10.5px; font-weight:600;
-  cursor:pointer;
+  color:var(--ink-400); font-size:9.6px; font-weight:600;
+  cursor:pointer; white-space:nowrap;
 }
-.nav-btn svg{width:22px; height:22px; stroke:var(--ink-400); fill:none; stroke-width:1.8;}
+.nav-btn svg{width:20px; height:20px; stroke:var(--ink-400); fill:none; stroke-width:1.8;}
 .nav-btn.active{color:var(--navy-800);}
 .nav-btn.active svg{stroke:var(--navy-800);}
 .nav-btn .dot{width:4px; height:4px; border-radius:50%; background:transparent; margin-top:-2px;}
@@ -408,6 +408,73 @@ body.install-banner-active .app-header{
 .step-label{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--navy-800); margin-bottom:4px;}
 .step-title{font-size:14px; font-weight:700; margin:0 0 4px;}
 
+/* ---- Kamera Geotag ---- */
+.cam-wrap{
+  position:relative; width:100%; aspect-ratio:3/4; background:#101418;
+  border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow);
+}
+.cam-wrap video, .cam-wrap img.cam-result{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+.cam-status{
+  position:absolute; top:10px; left:10px; right:10px;
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.cam-chip{
+  background:rgba(11,31,58,.62); backdrop-filter:blur(2px); color:#fff;
+  font-size:10.5px; font-weight:700; padding:5px 10px; border-radius:20px;
+  display:inline-flex; align-items:center; gap:5px;
+}
+.cam-chip svg{width:12px; height:12px; stroke:#fff; fill:none; stroke-width:2.2;}
+.cam-chip.locating{color:var(--amber-100);}
+.cam-chip.ok{color:#BFF3D1;}
+.cam-chip.err{color:var(--coral-100);}
+.cam-shutter-bar{
+  position:absolute; left:0; right:0; bottom:0;
+  padding:18px 0 22px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(0deg, rgba(0,0,0,.45), rgba(0,0,0,0));
+}
+.cam-shutter{
+  width:64px; height:64px; border-radius:50%; background:#fff;
+  border:4px solid rgba(255,255,255,.5); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+.cam-shutter:active{background:var(--navy-100);}
+.cam-shutter svg{width:26px; height:26px; stroke:var(--navy-800); fill:none; stroke-width:2;}
+.cam-fallback{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; color:#fff; text-align:center; padding:24px;
+}
+.cam-fallback svg{width:34px; height:34px; stroke:var(--amber-100); fill:none; stroke-width:1.6;}
+.cam-fallback p{font-size:12.5px; color:var(--navy-100); margin:0 0 4px; line-height:1.5;}
+.cam-info-card{
+  background:var(--navy-50); border-radius:var(--radius-md); padding:12px 14px; margin-top:12px;
+}
+.cam-info-row{display:flex; gap:8px; font-size:12px; color:var(--ink-600); margin-bottom:4px; line-height:1.5;}
+.cam-info-row b{color:var(--navy-800); font-weight:700; flex-shrink:0;}
+.cam-size-pill{
+  display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700;
+  padding:2px 8px; border-radius:20px; margin-left:6px;
+}
+.cam-size-pill.ok{background:#DEF5E6; color:#1F8A4C;}
+.cam-size-pill.warn{background:var(--amber-100); color:#9c6c0a;}
+.cam-gallery{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;}
+.cam-gallery-item{
+  position:relative; aspect-ratio:1; border-radius:10px; overflow:hidden; background:var(--navy-100);
+  border:1px solid var(--line); cursor:pointer;
+}
+.cam-gallery-item img{width:100%; height:100%; object-fit:cover; display:block;}
+.cam-gallery-item .cam-gallery-size{
+  position:absolute; bottom:3px; right:4px; background:rgba(11,31,58,.72); color:#fff;
+  font-size:8.5px; font-weight:700; padding:1px 5px; border-radius:8px;
+}
+.cam-gallery-del{
+  position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%;
+  background:rgba(214,69,69,.9); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.cam-gallery-del svg{width:11px; height:11px; stroke:#fff; fill:none; stroke-width:2.4;}
+.cam-view-large img{width:100%; border-radius:var(--radius-md); display:block;}
+
 </style>
 </head>
 <body>
@@ -442,6 +509,10 @@ body.install-banner-active .app-header{
   <button class="nav-btn" data-view="absensi">
     <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M7.5 13.5l2 2 4-4.2"/></svg>
     Absensi<span class="dot"></span>
+  </button>
+  <button class="nav-btn" data-view="kamera">
+    <svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.2A2 2 0 0110.2 5h3.6a2 2 0 011.7.8L17 8h3a1.5 1.5 0 011.5 1.5v9A1.5 1.5 0 0120 20H4a1.5 1.5 0 01-1.5-1.5v-9A1.5 1.5 0 014 8z"/><circle cx="12" cy="13.5" r="3.6"/><path d="M17.2 10.4h.01"/></svg>
+    Kamera<span class="dot"></span>
   </button>
   <button class="nav-btn" data-view="pengaturan">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34H9a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87V9a1.7 1.7 0 001.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.55 1z"/></svg>
