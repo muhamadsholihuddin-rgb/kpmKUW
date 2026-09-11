@@ -488,6 +488,26 @@ body.cam-fs-active .app-header, body.cam-fs-active .bottom-nav{display:none !imp
 .cam-fullscreen .cam-status{top:calc(14px + env(safe-area-inset-top)); left:64px; right:14px;}
 .cam-fullscreen .cam-shutter-bar{padding-bottom:calc(22px + env(safe-area-inset-bottom));}
 .cam-fullscreen .cam-fallback{color:#fff;}
+.cam-live-watermark{
+  position:absolute; z-index:1; right:14px; left:14px;
+  bottom:calc(112px + env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:flex-end; gap:1px;
+  color:#fff; font-size:11.5px; font-weight:600; line-height:1.4; text-align:right;
+  text-shadow:0 1px 5px rgba(0,0,0,.9), 0 0 2px rgba(0,0,0,.9);
+  pointer-events:none;
+}
+.cam-live-watermark span:first-child{font-weight:700; font-size:12.5px;}
+.cam-live-watermark span:last-child{font-weight:500; opacity:.92;}
+/* Video kamera diputar mengikuti orientasi HP saat ini, supaya preview yang
+   dilihat pengguna sudah tegak, sama seperti hasil foto yang akan disimpan. */
+.cam-fullscreen.orient-landscape-primary video,
+.cam-fullscreen.orient-landscape-secondary video{
+  position:absolute; top:50%; left:50%;
+  width:100vh; height:100vw;
+}
+.cam-fullscreen.orient-landscape-primary video{transform:translate(-50%,-50%) rotate(-90deg);}
+.cam-fullscreen.orient-landscape-secondary video{transform:translate(-50%,-50%) rotate(90deg);}
+.cam-fullscreen.orient-portrait-secondary video{transform:rotate(180deg);}
 .cam-fs-close{
   position:absolute; z-index:2; top:calc(14px + env(safe-area-inset-top)); left:14px;
   width:38px; height:38px; border-radius:50%; background:rgba(11,31,58,.55); border:none;

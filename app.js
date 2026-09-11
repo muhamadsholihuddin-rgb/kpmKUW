@@ -845,8 +845,36 @@ let _cam = {
   locateStatus: 'idle',  // idle | locating | ok | err
   resultBlob: null,
   resultURL: null,
+  rawCanvas: null,      // foto mentah (sudah dikoreksi rotasi kamera) sebelum watermark dibakar, dipakai utk "Putar Foto"
+  manualRotation: 0,    // rotasi tambahan manual (0/90/180/270) dari tombol "Putar Foto"
+  capturedAt: null,     // Date saat jepret, supaya watermark & info waktu konsisten walau dirotasi ulang belakangan
   galleryCache: null
 };
+
+/** Deteksi orientasi layar HP saat ini. Dipakai supaya foto & watermark tetap
+ * tegak walau HP dipegang miring/landscape saat memotret. */
+function getOrientationInfo() {
+  if (screen.orientation && screen.orientation.type) {
+    return { type: screen.orientation.type, angle: screen.orientation.angle || 0 };
+  }
+  if (typeof window.orientation === 'number') {
+    const a = ((window.orientation % 360) + 360) % 360;
+    const type = a === 90 ? 'landscape-primary' : a === 270 ? 'landscape-secondary' : a === 180 ? 'portrait-secondary' : 'portrait-primary';
+    return { type, angle: a };
+  }
+  return { type: 'portrait-primary', angle: 0 };
+}
+
+/** Derajat rotasi (radian, konvensi ctx.rotate — positif = searah jarum jam)
+ * yang perlu diterapkan pada frame kamera mentah supaya hasil foto tegak,
+ * berdasarkan orientasi HP saat tombol jepret ditekan. */
+function getCaptureRotationRad() {
+  const { type } = getOrientationInfo();
+  if (type === 'landscape-primary') return -Math.PI / 2;
+  if (type === 'landscape-secondary') return Math.PI / 2;
+  if (type === 'portrait-secondary') return Math.PI;
+  return 0;
+}
 
 function fmtWaktuGeotag(d, mode) {
   mode = mode || settings.geotagFormatWaktu || 'tanggal_jam';
@@ -924,17 +952,67 @@ function requestLocation() {
 
 function updateCamStatusChip() {
   const el = document.getElementById('cam-status-chip');
-  if (!el) return;
-  if (_cam.locateStatus === 'locating') {
-    el.className = 'cam-chip locating';
-    el.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg> Mencari lokasi…`;
-  } else if (_cam.locateStatus === 'ok') {
-    el.className = 'cam-chip ok';
-    el.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 22s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/></svg> Lokasi didapat`;
-  } else {
-    el.className = 'cam-chip err';
-    el.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 22s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/></svg> Lokasi tidak tersedia`;
+  if (el) {
+    if (_cam.locateStatus === 'locating') {
+      el.className = 'cam-chip locating';
+      el.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg> Mencari lokasi…`;
+    } else if (_cam.locateStatus === 'ok') {
+      el.className = 'cam-chip ok';
+      el.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 22s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/></svg> Lokasi didapat`;
+    } else {
+      el.className = 'cam-chip err';
+      el.innerHTML = `<svg viewBox="0 0 24 24"><path d="M12 22s7-5.3 7-11a7 7 0 10-14 0c0 5.7 7 11 7 11z"/></svg> Lokasi tidak tersedia`;
+    }
   }
+  updateCamLiveWatermark();
+}
+
+/** Susun teks watermark (alamat/koordinat/waktu) — dipakai baik untuk preview
+ * langsung di layar kamera (live) maupun untuk digambar ke foto hasil jepretan. */
+function buildWatermarkLines() {
+  const lines = [];
+  if (_cam.address && _cam.address.length) lines.push(..._cam.address);
+  else if (_cam.coords) lines.push('Alamat tidak terdeteksi');
+  if (_cam.coords) lines.push(`${_cam.coords.lat.toFixed(6)}, ${_cam.coords.lon.toFixed(6)}`);
+  lines.push(fmtWaktuGeotag(new Date()));
+  return lines;
+}
+
+function updateCamLiveWatermark() {
+  const el = document.getElementById('cam-live-watermark');
+  if (!el) return;
+  const lines = buildWatermarkLines();
+  el.innerHTML = lines.map((ln, i) => `<span>${i === 0 ? '📍 ' : ''}${esc(ln)}</span>`).join('');
+}
+
+let _camWatermarkTimer = null;
+function startCamWatermarkTimer() {
+  stopCamWatermarkTimer();
+  _camWatermarkTimer = setInterval(updateCamLiveWatermark, 15000);
+}
+function stopCamWatermarkTimer() {
+  if (_camWatermarkTimer) { clearInterval(_camWatermarkTimer); _camWatermarkTimer = null; }
+}
+
+/** Tambah/lepas kelas orientasi pada overlay fullscreen supaya preview video
+ * ikut diputar mengikuti posisi HP (agar tampilan live cocok dengan hasil foto). */
+function updateCamOrientationClass() {
+  const overlay = document.getElementById('cam-fullscreen');
+  if (!overlay) return;
+  overlay.classList.remove('orient-landscape-primary', 'orient-landscape-secondary', 'orient-portrait-secondary');
+  const { type } = getOrientationInfo();
+  if (type === 'landscape-primary') overlay.classList.add('orient-landscape-primary');
+  else if (type === 'landscape-secondary') overlay.classList.add('orient-landscape-secondary');
+  else if (type === 'portrait-secondary') overlay.classList.add('orient-portrait-secondary');
+}
+function handleCamOrientationChange() {
+  if (!document.body.classList.contains('cam-fs-active')) return;
+  updateCamOrientationClass();
+}
+window.addEventListener('orientationchange', handleCamOrientationChange);
+window.addEventListener('resize', handleCamOrientationChange);
+if (screen.orientation && screen.orientation.addEventListener) {
+  screen.orientation.addEventListener('change', handleCamOrientationChange);
 }
 
 async function startCameraStream() {
@@ -967,8 +1045,10 @@ document.addEventListener('visibilitychange', () => {
   else if (!_cam.usingFallback && !_cam.resultBlob) startCameraStream();
 });
 
-/** Gambar overlay geotag (alamat + koordinat + waktu) di atas canvas foto. */
-async function drawGeotagOverlay(canvas) {
+/** Gambar overlay geotag (alamat + koordinat + waktu) di atas canvas foto.
+ * capturedAt dikunci dari saat jepret, supaya kalau foto diputar ulang lewat
+ * tombol "Putar Foto" nanti, waktunya tidak berubah jadi waktu sekarang. */
+async function drawGeotagOverlay(canvas, capturedAt) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   try { await document.fonts.ready; } catch (e) {}
@@ -979,7 +1059,7 @@ async function drawGeotagOverlay(canvas) {
   if (_cam.coords) {
     lines.push(`${_cam.coords.lat.toFixed(6)}, ${_cam.coords.lon.toFixed(6)}`);
   }
-  lines.push(fmtWaktuGeotag(new Date()));
+  lines.push(fmtWaktuGeotag(capturedAt || new Date()));
 
   const fontSize = Math.max(15, Math.round(w / 34));
   const lineHeight = Math.round(fontSize * 1.35);
@@ -1042,23 +1122,71 @@ async function canvasToBlobUnderLimit(canvas, maxBytes = GEOFOTO_MAX_BYTES) {
   return lastBlob;
 }
 
-async function processCapturedCanvas(canvas) {
-  await drawGeotagOverlay(canvas);
+/** Putar canvas `src` sejumlah `deg` (0/90/180/270) derajat searah jarum jam,
+ * mengembalikan canvas baru (dimensi ditukar untuk 90/270). */
+function rotateCanvas(src, deg) {
+  const rot = ((deg % 360) + 360) % 360;
+  if (rot === 0) {
+    const c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    c.getContext('2d').drawImage(src, 0, 0);
+    return c;
+  }
+  const swap = rot === 90 || rot === 270;
+  const c = document.createElement('canvas');
+  c.width = swap ? src.height : src.width;
+  c.height = swap ? src.width : src.height;
+  const ctx = c.getContext('2d');
+  ctx.translate(c.width / 2, c.height / 2);
+  ctx.rotate(rot * Math.PI / 180);
+  ctx.drawImage(src, -src.width / 2, -src.height / 2);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return c;
+}
+
+/** Susun ulang hasil foto dari canvas mentah (_cam.rawCanvas): terapkan rotasi
+ * manual (kalau ada, dari tombol "Putar Foto"), lalu gambar ulang watermark
+ * dari awal supaya tulisannya selalu tegak & waktu tetap konsisten. */
+async function finalizeResultFromRaw() {
+  if (!_cam.rawCanvas) return;
+  const canvas = rotateCanvas(_cam.rawCanvas, _cam.manualRotation || 0);
+  await drawGeotagOverlay(canvas, _cam.capturedAt);
   const blob = await canvasToBlobUnderLimit(canvas);
   if (_cam.resultURL) URL.revokeObjectURL(_cam.resultURL);
   _cam.resultBlob = blob;
   _cam.resultURL = URL.createObjectURL(blob);
-  stopCameraStream();
   render();
+}
+
+function rotateResultPhoto() {
+  _cam.manualRotation = ((_cam.manualRotation || 0) + 90) % 360;
+  finalizeResultFromRaw();
+}
+
+async function processCapturedCanvas(canvas) {
+  _cam.rawCanvas = canvas;
+  _cam.manualRotation = 0;
+  _cam.capturedAt = new Date();
+  stopCameraStream();
+  await finalizeResultFromRaw();
 }
 
 function capturePhotoFromVideo() {
   const video = document.getElementById('cam-video');
   if (!video || !video.videoWidth) { toast('Kamera belum siap'); return; }
+  const vw = video.videoWidth, vh = video.videoHeight;
+  // Koreksi rotasi berdasarkan orientasi HP saat ini, supaya isi foto tegak
+  // walau HP dipegang landscape/miring saat menjepret (lihat getCaptureRotationRad).
+  const rot = getCaptureRotationRad();
+  const swap = rot === Math.PI / 2 || rot === -Math.PI / 2;
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.width = swap ? vh : vw;
+  canvas.height = swap ? vw : vh;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(rot);
+  ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   processCapturedCanvas(canvas);
 }
 
@@ -1087,6 +1215,9 @@ function retakePhoto() {
   if (_cam.resultURL) URL.revokeObjectURL(_cam.resultURL);
   _cam.resultBlob = null;
   _cam.resultURL = null;
+  _cam.rawCanvas = null;
+  _cam.manualRotation = 0;
+  _cam.capturedAt = null;
   _cam.locateStatus = 'idle'; // paksa bindKameraView minta ulang lokasi terbaru
   render();
 }
@@ -1187,12 +1318,14 @@ function renderKameraView() {
       </div>
       ${_cam.address && _cam.address.length ? `<div class="cam-info-row"><b>Alamat</b><span>${esc(_cam.address.join(', '))}</span></div>` : `<div class="cam-info-row"><b>Alamat</b><span>Tidak terdeteksi</span></div>`}
       ${_cam.coords ? `<div class="cam-info-row"><b>Koordinat</b><span>${_cam.coords.lat.toFixed(6)}, ${_cam.coords.lon.toFixed(6)}</span></div>` : ''}
-      <div class="cam-info-row"><b>Waktu</b><span>${fmtWaktuGeotag(new Date())}</span></div>
+      <div class="cam-info-row"><b>Waktu</b><span>${fmtWaktuGeotag(_cam.capturedAt || new Date())}</span></div>
     </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn secondary" id="cam-retake">Ambil Ulang</button>
       <button class="btn gold" id="cam-download">Unduh Foto</button>
     </div>
+    <button class="btn secondary" id="cam-rotate" style="margin-top:8px">↻ Putar Foto 90°</button>
+    <div class="hint" style="text-align:center; margin-top:4px">Kalau foto/watermark masih miring, tekan ini sampai posisinya tegak.</div>
     <button class="btn" id="cam-save-gallery" style="margin-top:8px">Simpan ke Galeri</button>
 
     <div class="section-title">Galeri Foto Geotag</div>
@@ -1235,6 +1368,7 @@ function renderCamFullscreenHTML() {
     </button>
     <video id="cam-video" playsinline muted autoplay></video>
     <div class="cam-status"><span id="cam-status-chip" class="cam-chip locating">Mencari lokasi…</span></div>
+    <div class="cam-live-watermark" id="cam-live-watermark"></div>
     <div class="cam-shutter-bar">
       <button class="cam-shutter" id="cam-shutter-btn" type="button" aria-label="Ambil foto">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
@@ -1250,9 +1384,11 @@ function openCameraFullscreen() {
   inner.innerHTML = renderCamFullscreenHTML();
   overlay.classList.add('open');
   document.body.classList.add('cam-fs-active');
+  updateCamOrientationClass();
   document.getElementById('cam-fs-close').addEventListener('click', () => setView('beranda'));
   document.getElementById('cam-shutter-btn').addEventListener('click', capturePhotoFromVideo);
   updateCamStatusChip();
+  startCamWatermarkTimer();
   startCameraStream();
   if (_cam.locateStatus === 'idle') requestLocation();
 }
@@ -1261,6 +1397,7 @@ function closeCameraFullscreen() {
   const overlay = document.getElementById('cam-fullscreen');
   if (overlay) overlay.classList.remove('open');
   document.body.classList.remove('cam-fs-active');
+  stopCamWatermarkTimer();
 }
 
 function bindKameraView() {
@@ -1269,6 +1406,7 @@ function bindKameraView() {
     closeCameraFullscreen();
     document.getElementById('cam-retake').addEventListener('click', retakePhoto);
     document.getElementById('cam-download').addEventListener('click', () => downloadGeoFotoBlob(_cam.resultBlob));
+    document.getElementById('cam-rotate').addEventListener('click', rotateResultPhoto);
     document.getElementById('cam-save-gallery').addEventListener('click', saveResultToGallery);
   } else if (_cam.usingFallback) {
     closeCameraFullscreen();
